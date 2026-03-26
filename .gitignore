@@ -1,10 +1,70 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── ML artifacts ──────────────────────────────────────────────────────────────
+outputs/
+multirun/
+*.ckpt
+*.pt
+*.pth
+wandb/
+mlruns/
+.hydra/
+
+# ── Data (exceptions below keep directory sentinels) ──────────────────────────
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# ── TypeScript / Node ─────────────────────────────────────────────────────────
+node_modules/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+.npm/
+
+# ── C++ / CMake ───────────────────────────────────────────────────────────────
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+_deps/
+
+# ── Notebooks ─────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+# NOTE: *.ipynb policy is team-decided — some projects commit notebooks,
+#       others generate them from scripts. Discuss with your supervisor.
+
+# ── OS / IDE ──────────────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# ── DVD Swarm (generated files) ───────────────────────────────────────────────
+docker-compose.swarm.yml
 dvd.log
-mav.tlog
-mav.tlog.raw
-simulator/mgmt/instance
-mav.parm
-*.cap
-*.csv
-*.netxml
-*.pyc

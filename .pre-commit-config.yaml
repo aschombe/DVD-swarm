@@ -1,0 +1,54 @@
+repos:
+  # ── General (always active) ─────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # ── Python (always active) ──────────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        args: [--strict]
+
+  # ── Notebooks ───────────────────────────────────────────────────────────────
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.7.1
+    hooks:
+      - id: nbstripout
+
+  # ── TypeScript (uncomment if package.json is active) ────────────────────────
+  # - repo: https://github.com/pre-commit/mirrors-eslint
+  #   rev: v8.57.0
+  #   hooks:
+  #     - id: eslint
+  #       files: \.[jt]sx?$
+  #       types: [file]
+  #       additional_dependencies:
+  #         - eslint
+  #         - "@typescript-eslint/eslint-plugin"
+  #         - "@typescript-eslint/parser"
+
+  # ── C++ (uncomment if CMakeLists.txt is active) ──────────────────────────────
+  # - repo: https://github.com/pre-commit/mirrors-clang-format
+  #   rev: v18.1.6
+  #   hooks:
+  #     - id: clang-format
+  #       types_or: [c, c++]
