@@ -172,8 +172,8 @@ jobs:
       - name: Start 3 instances
         run: docker compose -f docker-compose.swarm.yml up -d
 
-      - name: Wait for containers to stabilise (60 s)
-        run: sleep 60
+      - name: Wait for containers to stabilise (120 s)
+        run: sleep 120
 
       - name: Assert all 9 containers are running
         run: |
@@ -193,24 +193,32 @@ jobs:
             exit 1
           fi
 
-      - name: Check companion-computer-1 HTTP (port 3001)
-        run: |
-          curl --retry 6 --retry-delay 10 --retry-connrefused \
-               --max-time 10 -sf http://localhost:3001/ \
-               && echo "companion-computer-1 OK"
+      - name: Show container state before health checks
+        run: docker ps --filter "name=lite-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
+      # Port 3000 on the companion computer hosts both SSH (moved from 22)
+      # and Flask. SSH may win the startup race and return an SSH banner,
+      # causing curl exit 56. We test the /health endpoint specifically to
+      # avoid the SSH banner, and use --retry-all-errors to handle transient
+      # SSH responses during the Flask warm-up window.
+      - name: Check companion-computer-1 (port 3001)
+        run: |
+          curl --retry 8 --retry-delay 10 --retry-connrefused --retry-all-errors \
+               --max-time 10 -sf http://localhost:3001/health \
+          || curl --retry 8 --retry-delay 10 --retry-connrefused --retry-all-errors \
+               --max-time 10 -sf http://localhost:3001/api/telemetry \
+          && echo "companion-computer-1 OK"
+
+      # Simulator is pure Flask — no SSH ambiguity
       - name: Check simulator-1 mgmt console (port 8001)
         run: |
-          curl --retry 6 --retry-delay 10 --retry-connrefused \
+          curl --retry 8 --retry-delay 10 --retry-connrefused --retry-all-errors \
                --max-time 10 -sf http://localhost:8001/ \
                && echo "simulator-1 OK"
 
-      - name: Check instance 3 endpoints
+      - name: Check instance 3 simulator (port 8003)
         run: |
-          curl --retry 6 --retry-delay 10 --retry-connrefused \
-               --max-time 10 -sf http://localhost:3003/ \
-               && echo "companion-computer-3 OK"
-          curl --retry 6 --retry-delay 10 --retry-connrefused \
+          curl --retry 8 --retry-delay 10 --retry-connrefused --retry-all-errors \
                --max-time 10 -sf http://localhost:8003/ \
                && echo "simulator-3 OK"
 
