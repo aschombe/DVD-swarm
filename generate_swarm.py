@@ -17,11 +17,28 @@ Memory budget (no GCS, default limits):
 GCS (QGroundControl) is excluded by default — it adds ~512 MB per instance
 and is not needed for automated data collection. Pass --include-gcs to add it.
 
+Waypoint injection (--waypoints-dir):
+  Waypoints files are mounted into each companion-computer at /missions/waypoints.txt.
+  Resolution order for instance N:
+    1. missions/waypoints_N.txt   ← per-instance file (takes priority)
+    2. missions/waypoints.txt     ← shared fallback for all instances
+
+  Example layout for 3 instances with mixed routes:
+    missions/
+      waypoints.txt       ← default (instances 3+ use this)
+      waypoints_1.txt     ← instance 1 flies a different route
+      waypoints_2.txt     ← instance 2 flies a different route
+
+  If neither file exists for an instance the waypoints mount is omitted and
+  a warning is printed.
+
 Usage:
-    python3 generate_swarm.py                    # 14 instances, no GCS
+    python3 generate_swarm.py                        # 14 instances, no GCS
     python3 generate_swarm.py --instances 20
-    python3 generate_swarm.py --include-gcs      # add QGroundControl per instance
-    python3 generate_swarm.py --ram-gb 32        # auto-size for 32 GB host
+    python3 generate_swarm.py --include-gcs          # add QGroundControl per instance
+    python3 generate_swarm.py --ram-gb 32            # auto-size for 32 GB host
+    python3 generate_swarm.py --waypoints-dir missions   # inject waypoints (default)
+    python3 generate_swarm.py --no-waypoints         # skip waypoints entirely
     python3 generate_swarm.py --out custom.yml
 """
 
@@ -105,8 +122,36 @@ def flight_controller_service(n: int) -> dict[str, Any]:
     }
 
 
-def companion_computer_service(n: int) -> dict[str, Any]:
-    """Build the companion-computer-lite service definition for instance N."""
+def resolve_waypoints(n: int, waypoints_dir: Path | None) -> str | None:
+    """Return the host-side waypoints file to mount for instance N, or None.
+
+    Checks for a per-instance file (waypoints_N.txt) first, then falls back
+    to the shared waypoints.txt. Returns the path as a string suitable for a
+    Docker bind-mount source, or None if no file is found.
+    """
+    if waypoints_dir is None:
+        return None
+    per_instance = waypoints_dir / f"waypoints_{n}.txt"
+    if per_instance.exists():
+        return str(per_instance)
+    shared = waypoints_dir / "waypoints.txt"
+    if shared.exists():
+        return str(shared)
+    return None
+
+
+def companion_computer_service(n: int, waypoints_dir: Path | None) -> dict[str, Any]:
+    """Build the companion-computer-lite service definition for instance N.
+
+    Mounts a waypoints file at /missions/waypoints.txt if one is found under
+    waypoints_dir. Resolution order: waypoints_N.txt → waypoints.txt.
+    """
+    volumes: list[str] = [f"dvd-serial-{n}:/sockets"]
+
+    wp_host = resolve_waypoints(n, waypoints_dir)
+    if wp_host is not None:
+        volumes.append(f"{wp_host}:/missions/waypoints.txt:ro")
+
     return {
         "image": IMAGES["companion-computer"],
         "container_name": f"companion-computer-lite-{n}",
@@ -114,7 +159,7 @@ def companion_computer_service(n: int) -> dict[str, Any]:
         "extra_hosts": ["host.docker.internal:host-gateway"],
         "ports": [f"{BASE_COMPANION_PORT + n}:3000"],
         "depends_on": [f"flight-controller-lite-{n}"],
-        "volumes": [f"dvd-serial-{n}:/sockets"],
+        "volumes": volumes,
         "environment": [
             "LITE=true",
             # WIFI_ENABLED intentionally omitted — no virtual WiFi in swarm
@@ -185,11 +230,13 @@ def simulator_service(n: int) -> dict[str, Any]:
     }
 
 
-def instance_services(n: int, *, include_gcs: bool) -> dict[str, dict[str, Any]]:
+def instance_services(
+    n: int, *, include_gcs: bool, waypoints_dir: Path | None
+) -> dict[str, dict[str, Any]]:
     """Return service definitions for instance N."""
     services: dict[str, dict[str, Any]] = {
         f"flight-controller-lite-{n}": flight_controller_service(n),
-        f"companion-computer-lite-{n}": companion_computer_service(n),
+        f"companion-computer-lite-{n}": companion_computer_service(n, waypoints_dir),
         f"simulator-lite-{n}": simulator_service(n),
     }
     if include_gcs:
@@ -217,14 +264,19 @@ def instance_volumes(n: int) -> dict[str, None]:
     }
 
 
-def generate(n_instances: int, *, include_gcs: bool) -> dict[str, Any]:
+def generate(
+    n_instances: int,
+    *,
+    include_gcs: bool,
+    waypoints_dir: Path | None,
+) -> dict[str, Any]:
     """Build the full Compose document for n_instances DVD litemode stacks."""
     services: dict[str, Any] = {}
     networks: dict[str, Any] = {}
     volumes: dict[str, Any] = {}
 
     for n in range(1, n_instances + 1):
-        services.update(instance_services(n, include_gcs=include_gcs))
+        services.update(instance_services(n, include_gcs=include_gcs, waypoints_dir=waypoints_dir))
         networks[f"dvd-net-{n}"] = instance_network(n)
         volumes.update(instance_volumes(n))
 
@@ -268,6 +320,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=False,
         help="Include QGroundControl (adds ~512 MB per instance)",
     )
+
+    wp_group = parser.add_mutually_exclusive_group()
+    wp_group.add_argument(
+        "--waypoints-dir",
+        type=Path,
+        default=Path("missions"),
+        metavar="DIR",
+        help=(
+            "Directory containing waypoints files. "
+            "Per-instance file waypoints_N.txt takes priority over waypoints.txt. "
+            "Mounted into each companion-computer at /missions/waypoints.txt"
+        ),
+    )
+    wp_group.add_argument(
+        "--no-waypoints",
+        action="store_true",
+        default=False,
+        help="Skip waypoints injection entirely",
+    )
+
     parser.add_argument(
         "--out",
         type=Path,
@@ -298,10 +370,37 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: instances must be <= 253, got {n}", file=sys.stderr)
         return 1
 
+    # Resolve waypoints directory
+    waypoints_dir: Path | None
+    if args.no_waypoints:
+        waypoints_dir = None
+    else:
+        waypoints_dir = args.waypoints_dir
+        if not waypoints_dir.is_dir():
+            print(
+                f"warning: --waypoints-dir '{waypoints_dir}' not found — "
+                "waypoints will not be mounted. Create the directory or pass --no-waypoints.",
+                file=sys.stderr,
+            )
+            waypoints_dir = None
+
     services_per = 3 + (1 if args.include_gcs else 0)
     mb_per = _MB_PER_INSTANCE_WITH_GCS if args.include_gcs else _MB_PER_INSTANCE_NO_GCS
 
-    compose = generate(n, include_gcs=args.include_gcs)
+    compose = generate(n, include_gcs=args.include_gcs, waypoints_dir=waypoints_dir)
+
+    # Report which waypoints resolution each instance got
+    wp_summary: dict[str, list[int]] = {"per-instance": [], "shared": [], "none": []}
+    if waypoints_dir is not None:
+        for i in range(1, n + 1):
+            per = waypoints_dir / f"waypoints_{i}.txt"
+            shared = waypoints_dir / "waypoints.txt"
+            if per.exists():
+                wp_summary["per-instance"].append(i)
+            elif shared.exists():
+                wp_summary["shared"].append(i)
+            else:
+                wp_summary["none"].append(i)
 
     gcs_note = (
         "GCS included (+512 MB/instance)"
@@ -321,7 +420,8 @@ def main(argv: list[str] | None = None) -> int:
         f"#   simulator mgmt     : {BASE_SIMULATOR_PORT + 1}"
         f"–{BASE_SIMULATOR_PORT + n}\n"
         "#\n"
-        f"# Subnets: 10.13.1.0/24 – 10.13.{n}.0/24\n\n"
+        f"# Subnets: 10.13.1.0/24 – 10.13.{n}.0/24\n"
+        f"# Waypoints dir       : {waypoints_dir or 'none (--no-waypoints)'}\n\n"
     )
 
     output = header + yaml.dump(
@@ -339,6 +439,18 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  simulator ports : {BASE_SIMULATOR_PORT + 1}–{BASE_SIMULATOR_PORT + n}")
     if not args.include_gcs:
         print("  GCS             : excluded (pass --include-gcs to add)")
+    if waypoints_dir is not None:
+        if wp_summary["per-instance"]:
+            print(f"  waypoints       : per-instance for {wp_summary['per-instance']}")
+        if wp_summary["shared"]:
+            print(f"  waypoints       : shared fallback for instances {wp_summary['shared']}")
+        if wp_summary["none"]:
+            print(
+                f"  waypoints       : WARNING — no file found for instances {wp_summary['none']}",
+                file=sys.stderr,
+            )
+    else:
+        print("  waypoints       : not mounted (--no-waypoints)")
     return 0
 
 
