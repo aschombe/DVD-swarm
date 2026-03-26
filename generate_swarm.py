@@ -133,10 +133,10 @@ def resolve_waypoints(n: int, waypoints_dir: Path | None) -> str | None:
         return None
     per_instance = waypoints_dir / f"waypoints_{n}.txt"
     if per_instance.exists():
-        return str(per_instance)
+        return str(per_instance.resolve())
     shared = waypoints_dir / "waypoints.txt"
     if shared.exists():
-        return str(shared)
+        return str(shared.resolve())
     return None
 
 
