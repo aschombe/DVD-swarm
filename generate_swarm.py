@@ -158,11 +158,18 @@ def ground_control_station_service(n: int) -> dict[str, Any]:
 
 def simulator_service(n: int) -> dict[str, Any]:
     """Build the simulator-lite service definition for instance N."""
+    cc_url = f"http://{CC_IP_TEMPLATE.format(n=n)}:3000"
     return {
         "image": IMAGES["simulator"],
         "container_name": f"simulator-lite-{n}",
         "privileged": True,
-        "environment": ["LITE=true"],
+        "environment": [
+            "LITE=true",
+            # Override Dockerfile ENV and bridge.py default — both hardcode
+            # the original single-instance subnet (10.13.0.3 / "companion-computer")
+            f"MAV2REST_URL={cc_url}",
+            f"COMPANION_BASE_URL={cc_url}",
+        ],
         "volumes": [
             # mgmt scripts are read-only and shared across all instances
             "./simulator/mgmt:/app/simulator/mgmt:ro",
