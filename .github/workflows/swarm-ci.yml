@@ -1,0 +1,223 @@
+name: Swarm CI
+
+# Tests the swarm generator and a small live stack.
+#
+# smoke-test uses 3 instances (not 5) because the free ubuntu-latest runner
+# has 7 GB RAM and the lite images are large (ROS + ArduPilot).
+# 3 instances × ~1 GB = ~3 GB containers + ~2 GB OS/Docker = ~5 GB total.
+# Run a full 5-instance test on the actual server with: make generate INSTANCES=5 && make up
+#
+# Jobs:
+#   lint        — ruff, mypy, generator flag permutations, YAML validation (no Docker)
+#   smoke-test  — pull images, start 3 instances, health-check, tear down
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+
+  # ── Lint & generator correctness ─────────────────────────────────────────────
+  lint:
+    name: Lint & generate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dev dependencies
+        run: pip install ruff mypy pyyaml types-pyyaml
+
+      - name: ruff lint
+        run: ruff check generate_swarm.py
+
+      - name: ruff format check
+        run: ruff format --check generate_swarm.py
+
+      - name: mypy
+        run: mypy generate_swarm.py
+
+      # Exercise all meaningful flag combinations and validate YAML output
+      - name: generate — default (auto-size 16 GB)
+        run: python3 generate_swarm.py --no-waypoints
+
+      - name: generate — explicit instances
+        run: python3 generate_swarm.py --instances 5 --no-waypoints
+
+      - name: generate — ram-gb auto-size
+        run: python3 generate_swarm.py --ram-gb 32 --no-waypoints
+
+      - name: generate — include-gcs
+        run: python3 generate_swarm.py --instances 3 --include-gcs --no-waypoints
+
+      - name: generate — waypoints shared fallback
+        run: python3 generate_swarm.py --instances 3 --waypoints-dir missions/
+
+      - name: generate — waypoints per-instance
+        run: |
+          cp missions/waypoints.txt missions/waypoints_1.txt
+          cp missions/waypoints.txt missions/waypoints_2.txt
+          python3 generate_swarm.py --instances 3 --waypoints-dir missions/
+          rm missions/waypoints_1.txt missions/waypoints_2.txt
+
+      - name: Validate YAML structure
+        run: |
+          python3 - <<'EOF'
+          import sys, yaml
+          from pathlib import Path
+
+          with open("docker-compose.swarm.yml") as f:
+              content = "".join(l for l in f if not l.startswith("#"))
+          doc = yaml.safe_load(content)
+
+          services = doc["services"]
+          networks = doc["networks"]
+          volumes  = doc["volumes"]
+
+          # Last generate was --instances 3 --waypoints-dir missions/
+          n = 3
+          assert len(services) == n * 3, f"expected {n*3} services, got {len(services)}"
+          assert len(networks) == n,     f"expected {n} networks, got {len(networks)}"
+
+          for i in range(1, n + 1):
+              cc  = services[f"companion-computer-lite-{i}"]
+              sim = services[f"simulator-lite-{i}"]
+
+              # Ports must not conflict
+              assert cc["ports"]  == [f"{3000+i}:3000"],  f"CC port wrong for instance {i}"
+              assert sim["ports"] == [f"{8000+i}:8000"],  f"SIM port wrong for instance {i}"
+
+              # Simulator must point to the right companion IP
+              sim_env = {e.split("=")[0]: e.split("=",1)[1] for e in sim["environment"]}
+              expected_url = f"http://10.13.{i}.3:3000"
+              assert sim_env["COMPANION_BASE_URL"] == expected_url, \
+                  f"COMPANION_BASE_URL wrong for instance {i}: {sim_env['COMPANION_BASE_URL']}"
+              assert sim_env["MAV2REST_URL"] == expected_url, \
+                  f"MAV2REST_URL wrong for instance {i}: {sim_env['MAV2REST_URL']}"
+
+              # Waypoints must be mounted
+              wp_vols = [v for v in cc["volumes"] if "missions" in v]
+              assert len(wp_vols) == 1, f"expected waypoints mount for instance {i}"
+              assert wp_vols[0].endswith(":/missions/waypoints.txt:ro"), \
+                  f"unexpected waypoints mount: {wp_vols[0]}"
+
+              # Memory limits must be present
+              assert "mem_limit" in cc,  f"CC missing mem_limit for instance {i}"
+              assert "mem_limit" in sim, f"SIM missing mem_limit for instance {i}"
+
+              # GCS must NOT be present (default)
+              assert f"ground-control-station-lite-{i}" not in services, \
+                  f"GCS should be excluded but found for instance {i}"
+
+          print(f"YAML validation passed — {n} instances, {len(services)} services")
+          EOF
+
+  # ── Live smoke test ───────────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke test (3 instances)
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pyyaml
+        run: pip install pyyaml
+
+      - name: Raise inotify limits
+        run: |
+          sudo sysctl -w fs.inotify.max_user_instances=8192
+          sudo sysctl -w fs.inotify.max_user_watches=524288
+
+      - name: Generate 3-instance compose
+        run: python3 generate_swarm.py --instances 3 --no-waypoints
+
+      # Cache Docker image layers to speed up re-runs
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/docker-cache
+          key: dvd-lite-images-${{ hashFiles('docker-compose.swarm.yml') }}
+          restore-keys: dvd-lite-images-
+
+      - name: Load cached images (if present)
+        run: |
+          for f in /tmp/docker-cache/*.tar; do
+            [ -f "$f" ] && docker load -i "$f" && echo "Loaded $f" || true
+          done
+
+      - name: Pull lite images
+        run: docker compose -f docker-compose.swarm.yml pull
+
+      - name: Save images to cache
+        run: |
+          mkdir -p /tmp/docker-cache
+          docker save \
+            n1ckaleks/damn-vulnerable-drone-flight-controller-lite:latest \
+            n1ckaleks/damn-vulnerable-drone-companion-computer-lite:latest \
+            n1ckaleks/damn-vulnerable-drone-simulator-lite:latest \
+            -o /tmp/docker-cache/dvd-lite.tar
+
+      - name: Start 3 instances
+        run: docker compose -f docker-compose.swarm.yml up -d
+
+      - name: Wait for containers to stabilise (60 s)
+        run: sleep 60
+
+      - name: Assert all 9 containers are running
+        run: |
+          EXPECTED=9
+          RUNNING=$(docker ps \
+            --filter "name=flight-controller-lite-" \
+            --filter "name=companion-computer-lite-" \
+            --filter "name=simulator-lite-" \
+            --filter "status=running" \
+            --format "{{.Names}}" | wc -l)
+          echo "Running: $RUNNING / $EXPECTED"
+          if [ "$RUNNING" -ne "$EXPECTED" ]; then
+            echo "--- docker ps -a ---"
+            docker ps -a
+            echo "--- logs ---"
+            docker compose -f docker-compose.swarm.yml logs --tail=50
+            exit 1
+          fi
+
+      - name: Check companion-computer-1 HTTP (port 3001)
+        run: |
+          curl --retry 6 --retry-delay 10 --retry-connrefused \
+               --max-time 10 -sf http://localhost:3001/ \
+               && echo "companion-computer-1 OK"
+
+      - name: Check simulator-1 mgmt console (port 8001)
+        run: |
+          curl --retry 6 --retry-delay 10 --retry-connrefused \
+               --max-time 10 -sf http://localhost:8001/ \
+               && echo "simulator-1 OK"
+
+      - name: Check instance 3 endpoints
+        run: |
+          curl --retry 6 --retry-delay 10 --retry-connrefused \
+               --max-time 10 -sf http://localhost:3003/ \
+               && echo "companion-computer-3 OK"
+          curl --retry 6 --retry-delay 10 --retry-connrefused \
+               --max-time 10 -sf http://localhost:8003/ \
+               && echo "simulator-3 OK"
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.swarm.yml logs --tail=100
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.swarm.yml down -v --remove-orphans
