@@ -214,6 +214,10 @@ def simulator_service(n: int) -> dict[str, Any]:
             # the original single-instance subnet (10.13.0.3 / "companion-computer")
             f"MAV2REST_URL={cc_url}",
             f"COMPANION_BASE_URL={cc_url}",
+            # Tells utils.get_container() to append "-N" to container names so
+            # simulator-lite-N execs into flight-controller-lite-N / gcs-lite-N
+            # instead of the bare single-instance names.
+            f"SWARM_INSTANCE={n}",
         ],
         "volumes": [
             # mgmt scripts are read-only and shared across all instances
