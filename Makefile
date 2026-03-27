@@ -1,5 +1,5 @@
 COMPOSE_FILE  := docker-compose.swarm.yml
-INSTANCES     ?= 14
+INSTANCES     ?= 9
 RAM_GB        ?= 16
 PYTHON        := python3
 
@@ -8,10 +8,10 @@ PYTHON        := python3
 help:
 	@echo "DVD Swarm — headless litemode instances"
 	@echo ""
-	@echo "  make generate                  Auto-size for $(RAM_GB) GB RAM (~$(INSTANCES) instances, no GCS)"
-	@echo "  make generate INSTANCES=20     Override instance count explicitly"
+	@echo "  make generate                  Auto-size for $(RAM_GB) GB RAM (~9 instances, with GCS)"
+	@echo "  make generate NO_GCS=1         Omit QGroundControl (~14 instances)"
+	@echo "  make generate INSTANCES=5      Override instance count explicitly"
 	@echo "  make generate RAM_GB=32        Auto-size for a different host"
-	@echo "  make generate INCLUDE_GCS=1    Add QGroundControl (+512 MB/instance)"
 	@echo ""
 	@echo "  make pull                      Pull all lite images (run once before 'up')"
 	@echo "  make up                        Start all instances detached"
@@ -20,18 +20,19 @@ help:
 	@echo "  make logs                      Stream logs from all instances"
 	@echo "  make sysctl-check              Warn if inotify limits may be too low"
 	@echo ""
-	@echo "Memory per instance (no GCS): ~1 GB  |  with GCS: ~1.5 GB"
-	@echo "Recommended for 16 GB host  : 14 instances (no GCS)"
+	@echo "Memory per instance: ~1.5 GB with GCS (default) | ~1 GB no GCS"
+	@echo "Recommended for 16 GB host: 9 instances (with GCS)  |  14 instances (no GCS)"
 
 # ── Generate ──────────────────────────────────────────────────────────────────
 
-_GCS_FLAG := $(if $(INCLUDE_GCS),--include-gcs,)
+# GCS is on by default; NO_GCS=1 turns it off
+_NO_GCS_FLAG := $(if $(NO_GCS),--no-gcs,)
 
 generate:
 ifdef INSTANCES
-	$(PYTHON) generate_swarm.py --instances $(INSTANCES) $(_GCS_FLAG) --out $(COMPOSE_FILE)
+	$(PYTHON) generate_swarm.py --instances $(INSTANCES) $(_NO_GCS_FLAG) --out $(COMPOSE_FILE)
 else
-	$(PYTHON) generate_swarm.py --ram-gb $(RAM_GB) $(_GCS_FLAG) --out $(COMPOSE_FILE)
+	$(PYTHON) generate_swarm.py --ram-gb $(RAM_GB) $(_NO_GCS_FLAG) --out $(COMPOSE_FILE)
 endif
 
 # ── Image management ──────────────────────────────────────────────────────────

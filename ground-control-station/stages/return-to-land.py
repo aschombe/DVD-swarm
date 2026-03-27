@@ -1,28 +1,36 @@
-from pymavlink import mavutil
 import time
+
+from pymavlink import mavutil
+
 
 def set_rtl_altitude(master, rtl_alt_cm):
     """Set the RTL altitude."""
     master.mav.param_set_send(
         master.target_system,
         master.target_component,
-        b'RTL_ALT',
+        b"RTL_ALT",
         rtl_alt_cm,
-        mavutil.mavlink.MAV_PARAM_TYPE_INT32
+        mavutil.mavlink.MAV_PARAM_TYPE_INT32,
     )
     # Wait for the parameter to be set
     time.sleep(2)
+
 
 def set_mode_rtl(master):
     """Set the drone's mode to RTL (Return to Launch)."""
     master.mav.set_mode_send(
         master.target_system,
         mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-        mavutil.mavlink.COPTER_MODE_RTL
+        mavutil.mavlink.COPTER_MODE_RTL,
     )
 
-# Connect to the drone
-connection_string = "udp:0.0.0.0:14550"  # Replace with your connection string
+
+# Connect to companion computer's mavlink-routerd TCP port directly.
+# UDP 14550 is held by mavproxy.py in this container — use TCP 5760 instead.
+import os as _os
+
+_instance = _os.getenv("SWARM_INSTANCE", "0")
+connection_string = f"tcp:10.13.{_instance}.3:5760"
 master = mavutil.mavlink_connection(connection_string)
 master.wait_heartbeat()
 print("Connected to drone")

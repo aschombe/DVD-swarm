@@ -56,7 +56,10 @@ jobs:
       - name: generate — ram-gb auto-size
         run: python3 generate_swarm.py --ram-gb 32 --no-waypoints
 
-      - name: generate — include-gcs
+      - name: generate — no-gcs
+        run: python3 generate_swarm.py --instances 3 --no-gcs --no-waypoints
+
+      - name: generate — include-gcs explicit (default)
         run: python3 generate_swarm.py --instances 3 --include-gcs --no-waypoints
 
       - name: generate — waypoints shared fallback
@@ -83,9 +86,9 @@ jobs:
           networks = doc["networks"]
           volumes  = doc["volumes"]
 
-          # Last generate was --instances 3 --waypoints-dir missions/
+          # Last generate was --instances 3 --waypoints-dir missions/ (includes GCS by default)
           n = 3
-          assert len(services) == n * 3, f"expected {n*3} services, got {len(services)}"
+          assert len(services) == n * 4, f"expected {n*4} services, got {len(services)}"
           assert len(networks) == n,     f"expected {n} networks, got {len(networks)}"
 
           for i in range(1, n + 1):
@@ -114,9 +117,9 @@ jobs:
               assert "mem_limit" in cc,  f"CC missing mem_limit for instance {i}"
               assert "mem_limit" in sim, f"SIM missing mem_limit for instance {i}"
 
-              # GCS must NOT be present (default)
-              assert f"ground-control-station-lite-{i}" not in services, \
-                  f"GCS should be excluded but found for instance {i}"
+              # GCS must be present (default)
+              assert f"ground-control-station-lite-{i}" in services, \
+                  f"GCS should be included by default but missing for instance {i}"
 
           print(f"YAML validation passed — {n} instances, {len(services)} services")
           EOF
@@ -144,7 +147,7 @@ jobs:
           sudo sysctl -w fs.inotify.max_user_watches=524288
 
       - name: Generate 3-instance compose
-        run: python3 generate_swarm.py --instances 3 --no-waypoints
+        run: python3 generate_swarm.py --instances 3 --no-gcs --no-waypoints
 
       # Cache Docker image layers to speed up re-runs
       - name: Cache Docker layers

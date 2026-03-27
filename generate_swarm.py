@@ -4,18 +4,21 @@
 Each instance gets isolated networks, volumes, container names, and port
 mappings so all N instances can run concurrently on a single host.
 
-Memory budget (no GCS, default limits):
+Memory budget (with GCS, default limits):
   flight-controller : 256 MB
   companion-computer: 512 MB   ← ROS + Flask + MAVLink Router
+  ground-control-stn: 512 MB   ← QGroundControl AppImage
   simulator         : 256 MB   ← minimal ROS + Flask mgmt console
   ─────────────────────────────
-  per instance      : ~1 GB
+  per instance      : ~1.5 GB (with GCS, default)
+                      ~1 GB   (--no-gcs)
 
-  16 GB host (14 GB usable after OS)  →  ~14 instances
-  32 GB host                          →  ~30 instances
+  16 GB host (14 GB usable after OS)  →  ~9 instances (with GCS)
+                                         ~14 instances (--no-gcs)
+  32 GB host                          →  ~18 instances (with GCS)
 
-GCS (QGroundControl) is excluded by default — it adds ~512 MB per instance
-and is not needed for automated data collection. Pass --include-gcs to add it.
+GCS (QGroundControl) is included by default. Pass --no-gcs to omit it and
+fit more instances per host.
 
 Waypoint injection (--waypoints-dir):
   Waypoints files are mounted into each companion-computer at /missions/waypoints.txt.
@@ -33,9 +36,10 @@ Waypoint injection (--waypoints-dir):
   a warning is printed.
 
 Usage:
-    python3 generate_swarm.py                        # 14 instances, no GCS
+    python3 generate_swarm.py                        # 9 instances (16 GB, with GCS)
+    python3 generate_swarm.py --no-gcs               # 14 instances (16 GB, no GCS)
+    python3 generate_swarm.py --include-gcs          # explicit (backward compat, same as default)
     python3 generate_swarm.py --instances 20
-    python3 generate_swarm.py --include-gcs          # add QGroundControl per instance
     python3 generate_swarm.py --ram-gb 32            # auto-size for 32 GB host
     python3 generate_swarm.py --waypoints-dir missions   # inject waypoints (default)
     python3 generate_swarm.py --no-waypoints         # skip waypoints entirely
@@ -108,11 +112,15 @@ def _mem_limits(service: str) -> dict[str, str]:
 
 def flight_controller_service(n: int) -> dict[str, Any]:
     """Build the flight-controller-lite service definition for instance N."""
+    logs_path = str(Path(f"configs/data/raw/instance-{n}").resolve())
     return {
         "image": IMAGES["flight-controller"],
         "container_name": f"flight-controller-lite-{n}",
         "privileged": True,
-        "volumes": [f"dvd-serial-{n}:/sockets"],
+        "volumes": [
+            f"dvd-serial-{n}:/sockets",
+            f"{logs_path}:/ardupilot/logs",
+        ],
         "environment": ["LITE=true"],
         "networks": {
             f"dvd-net-{n}": {"ipv4_address": FC_IP_TEMPLATE.format(n=n)},
@@ -146,7 +154,19 @@ def companion_computer_service(n: int, waypoints_dir: Path | None) -> dict[str, 
     Mounts a waypoints file at /missions/waypoints.txt if one is found under
     waypoints_dir. Resolution order: waypoints_N.txt → waypoints.txt.
     """
-    volumes: list[str] = [f"dvd-serial-{n}:/sockets"]
+    # Patch out rospy.init_node — hangs when there is no ROS master.
+    # The upstream image includes camera_bp which imports rospy; removing it
+    # lets Flask bind to port 3000 and the telemetry pipeline work normally.
+    _app_patch = str(Path("companion-computer/interface/app.py").resolve())
+    # Patch telemetry.py: replace blocking communicate() with non-blocking Popen
+    # so the Flask thread is never stuck and mavlink-routerd log output can't
+    # accumulate in memory causing GC pauses → Socket.IO connection drops.
+    _telemetry_patch = str(Path("companion-computer/interface/routes/telemetry.py").resolve())
+    volumes: list[str] = [
+        f"dvd-serial-{n}:/sockets",
+        f"{_app_patch}:/interface/app.py:ro",
+        f"{_telemetry_patch}:/interface/routes/telemetry.py:ro",
+    ]
 
     wp_host = resolve_waypoints(n, waypoints_dir)
     if wp_host is not None:
@@ -162,6 +182,7 @@ def companion_computer_service(n: int, waypoints_dir: Path | None) -> dict[str, 
         "volumes": volumes,
         "environment": [
             "LITE=true",
+            f"SWARM_INSTANCE={n}",
             # WIFI_ENABLED intentionally omitted — no virtual WiFi in swarm
         ],
         "networks": {
@@ -178,6 +199,9 @@ def ground_control_station_service(n: int) -> dict[str, Any]:
     X11 display, GPU device, and WiFi are all stripped for headless operation.
     HEADLESS=1 instructs QGC to run without a display server.
     """
+    logs_path = str(Path(f"configs/data/raw/instance-{n}").resolve())
+    _stages = str(Path("ground-control-station/stages").resolve())
+    _missions = str(Path("ground-control-station/missions").resolve())
     return {
         "image": IMAGES["ground-control-station"],
         "container_name": f"ground-control-station-lite-{n}",
@@ -188,10 +212,17 @@ def ground_control_station_service(n: int) -> dict[str, Any]:
             "HEADLESS=1",
             "QT_NO_MITSHM=1",
             "XDG_RUNTIME_DIR=/tmp",
+            f"SWARM_INSTANCE={n}",  # stage scripts use this to derive companion TCP IP
         ],
         "volumes": [
             # Qt requires /etc/machine-id — available on any Linux host
             "/etc/machine-id:/etc/machine-id:ro",
+            # Read-only access to FC logs for post-flight-analysis.py (Stage 5)
+            f"{logs_path}:/ardupilot/logs:ro",
+            # Patch all stage scripts (fixes autopilot, takeoff altitude, post-flight analysis)
+            f"{_stages}:/opt/gcs/stages:ro",
+            # Patch missions (adds zigzag waypoints at 10m / ~55m spacing)
+            f"{_missions}:/opt/gcs/missions:ro",
         ],
         "networks": {
             f"dvd-net-{n}": {"ipv4_address": GCS_IP_TEMPLATE.format(n=n)},
@@ -318,11 +349,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Auto-size instance count for this much host RAM",
     )
 
-    parser.add_argument(
+    gcs_group = parser.add_mutually_exclusive_group()
+    gcs_group.add_argument(
         "--include-gcs",
+        dest="include_gcs",
         action="store_true",
-        default=False,
-        help="Include QGroundControl (adds ~512 MB per instance)",
+        default=True,
+        help="Include QGroundControl — default",
+    )
+    gcs_group.add_argument(
+        "--no-gcs",
+        dest="include_gcs",
+        action="store_false",
+        help="Omit QGroundControl (~512 MB saved per instance)",
     )
 
     wp_group = parser.add_mutually_exclusive_group()
@@ -390,6 +429,14 @@ def main(argv: list[str] | None = None) -> int:
 
     services_per = 3 + (1 if args.include_gcs else 0)
     mb_per = _MB_PER_INSTANCE_WITH_GCS if args.include_gcs else _MB_PER_INSTANCE_NO_GCS
+
+    # Pre-create log directories with world-writable permissions.
+    # ArduPilot runs as uid=1000 (ardupilot) inside the FC container; Docker
+    # creates bind-mount directories as root:root 755 which blocks writes.
+    for i in range(1, n + 1):
+        log_dir = Path(f"configs/data/raw/instance-{i}")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_dir.chmod(0o777)
 
     compose = generate(n, include_gcs=args.include_gcs, waypoints_dir=waypoints_dir)
 

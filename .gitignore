@@ -68,3 +68,7 @@ secrets/
 # ── DVD Swarm (generated files) ───────────────────────────────────────────────
 docker-compose.swarm.yml
 dvd.log
+
+# ── Dataset (raw ArduPilot logs) ──────────────────────────────────────────────
+configs/data/raw/instance-*/
+!configs/data/raw/.gitkeep

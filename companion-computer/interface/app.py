@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from pathlib import Path
-import os
 import json
 import logging
+import os
+import queue
 import subprocess
 import threading
 import time
 from logging.handlers import RotatingFileHandler
-from typing import Optional
-import queue
+from pathlib import Path
 
-import rospy
+from extensions import db
 from flask import (
     Flask,
     flash,
@@ -29,13 +28,10 @@ from flask_login import (
     login_user,
     logout_user,
 )
-from flask_socketio import SocketIO, emit
 from flask_sock import Sock
-
-from extensions import db
+from flask_socketio import SocketIO, emit
 from mavlink_connection import initialize_socketio, listen_to_mavlink
 from models import TelemetryStatus, UdpDestination, User
-from routes.camera import camera_bp
 from routes.logs import logs_bp
 from routes.telemetry import telemetry_bp
 from routes.wifi import wifi_bp
@@ -61,6 +57,10 @@ login_manager.login_message = "You must be logged in to access this page."
 DATABASE_PATH = "sqlite:///telemetry.db"
 CONFIG_FILE = Path("/interface/config.json")
 LOG_PATH = Path("logs/damn-vulnerable-companion-computer.log")
+
+# Per-instance GCS IP: 10.13.N.4 where N = SWARM_INSTANCE (0 = single-instance run)
+_SWARM_INSTANCE = os.getenv("SWARM_INSTANCE", "")
+_instance_num = int(_SWARM_INSTANCE) if _SWARM_INSTANCE else 0
 
 # ---- WS fanout state (for Flask-Sock) --------------------------------------
 _ws_lock = threading.Lock()
@@ -94,8 +94,9 @@ def _ws_publish(payload: dict) -> None:
 # Helper functions
 # ---------------------------------------------------------------------------
 
+
 @login_manager.user_loader
-def load_user(user_id: str) -> Optional[User]:
+def load_user(user_id: str) -> User | None:
     return User.query.get(int(user_id))
 
 
@@ -109,7 +110,7 @@ def configure_logging(app: Flask) -> None:
     app.logger.addHandler(file_handler)
 
 
-def get_host_gateway_ip() -> Optional[str]:
+def get_host_gateway_ip() -> str | None:
     try:
         out = subprocess.check_output(
             ["getent", "ahostsv4", "host.docker.internal"],
@@ -145,9 +146,8 @@ def create_app() -> Flask:
     # Initialise extensions
     login_manager.init_app(app)
     socketio.init_app(app, cors_allowed_origins="*")
-    sock.init_app(app)  # <-- NEW (Flask-Sock)
-    initialize_socketio(socketio)  # your existing pipeline that emits 'mavlink_message'
-    rospy.init_node("camera_display_node", anonymous=True)
+    sock.init_app(app)
+    initialize_socketio(socketio)
 
     # DB
     app.config.update(
@@ -165,7 +165,6 @@ def create_app() -> Flask:
     app.register_blueprint(telemetry_bp, url_prefix="/telemetry")
     app.register_blueprint(logs_bp, url_prefix="/logs")
     app.register_blueprint(wifi_bp, url_prefix="/wifi")
-    app.register_blueprint(camera_bp, url_prefix="/camera")
 
     # -------------------- Pages --------------------
 
@@ -248,15 +247,11 @@ def create_app() -> Flask:
 
     @sock.route("/ws/telemetry")
     def ws_telemetry(ws):
-        """
-        Plain WebSocket feed for sim-lite.
-        Sends the exact dict your server emits as 'mavlink_message'.
-        """
+        """Plain WebSocket feed for sim-lite telemetry."""
         q: queue.Queue = queue.Queue(maxsize=200)
         with _ws_lock:
             _ws_queues.add(q)
 
-        # Optional: push last known MAV frame immediately
         if _last_mav is not None:
             try:
                 ws.send(json.dumps(_last_mav, default=str))
@@ -265,10 +260,9 @@ def create_app() -> Flask:
 
         try:
             while True:
-                payload = q.get()  # block until new frame
+                payload = q.get()
                 ws.send(json.dumps(payload, default=str))
         except Exception:
-            # client disconnected or send failed
             pass
         finally:
             with _ws_lock:
@@ -284,6 +278,7 @@ def create_app() -> Flask:
 # ---------------------------------------------------------------------------
 # DB initialisation helpers
 # ---------------------------------------------------------------------------
+
 
 def add_default_user() -> None:
     if not User.query.filter_by(username="admin").first():
@@ -302,9 +297,9 @@ def initialize_udp_destinations() -> None:
     if "192.168.13.1" in ip_list:
         db.session.add(UdpDestination(ip="192.168.13.14", port=14550))
     else:
-        db.session.add(UdpDestination(ip="10.13.0.4", port=14550))
-
-    db.session.add(UdpDestination(ip="10.13.0.6", port=14550))
+        # Per-instance GCS: 10.13.N.4
+        gcs_ip = f"10.13.{_instance_num}.4"
+        db.session.add(UdpDestination(ip=gcs_ip, port=14550))
 
     host_ip = get_host_gateway_ip()
     if host_ip:
@@ -320,6 +315,7 @@ def initialize_udp_destinations() -> None:
 # ---------------------------------------------------------------------------
 # MAVLink thread helper
 # ---------------------------------------------------------------------------
+
 
 def start_mavlink_thread() -> None:
     while True:
@@ -344,4 +340,8 @@ if __name__ == "__main__":
         threading.Thread(target=start_mavlink_thread, daemon=True).start()
         app.logger.info("Application startup")
 
-    socketio.run(app, debug=True, host="0.0.0.0", port=3000, allow_unsafe_werkzeug=True)
+    # use_reloader=False: the Werkzeug file-watcher restarts the app whenever a
+    # bind-mounted file is touched, killing the MAVLink thread and dropping telemetry.
+    socketio.run(
+        app, debug=True, use_reloader=False, host="0.0.0.0", port=3000, allow_unsafe_werkzeug=True
+    )
