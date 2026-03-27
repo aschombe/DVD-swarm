@@ -436,7 +436,10 @@ def main(argv: list[str] | None = None) -> int:
     for i in range(1, n + 1):
         log_dir = Path(f"configs/data/raw/instance-{i}")
         log_dir.mkdir(parents=True, exist_ok=True)
-        log_dir.chmod(0o777)
+        try:
+            log_dir.chmod(0o777)
+        except PermissionError:
+            pass  # directory owned by root (Docker); chmod via docker exec if needed
 
     compose = generate(n, include_gcs=args.include_gcs, waypoints_dir=waypoints_dir)
 
