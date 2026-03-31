@@ -1,5 +1,6 @@
 # simulator/mgmt/routes/core.py
 import logging
+import os
 
 from extensions import db
 from flask import render_template
@@ -64,24 +65,56 @@ def stage1():
         s2.status = "Enabled"
     db.session.commit()
 
+    # Just use the base names, get_container() handles the swarm IDs automatically!
+    gcs_container = get_container("ground-control-station") 
+    wp_filepath = "/opt/gcs/missions/swarm_route.txt"
+    
+    start_lat, start_lon = "37.241861", "-115.796917" # Default fallback (Area 51)
+    
+    try:
+        # Reach into the GCS container and read the file
+        exit_code, output = gcs_container.exec_run(f"cat {wp_filepath}", stream=False)
+        if exit_code == 0:
+            wp_data = output.decode(errors="ignore") if isinstance(output, (bytes, bytearray)) else str(output)
+            lines = wp_data.strip().split('\n')
+            
+            # Parse the simple format: lat,lon,alt
+            for line in lines: 
+                parts = line.strip().split(',') 
+                if len(parts) >= 2:
+                    try:
+                        float(parts[0]) 
+                        start_lat = parts[0].strip()
+                        start_lon = parts[1].strip()
+                        logger.info("Parsed starting coords from WP file: %s, %s", start_lat, start_lon)
+                        break 
+                    except ValueError:
+                        continue 
+        else:
+            logger.warning("Could not read WP file in GCS container. Using defaults.")
+    except Exception as e:
+        logger.error("Failed to parse waypoint file: %s", e)
+
+    custom_location = f"{start_lat},{start_lon},0,340"
+
     container = get_container("flight-controller")
     logger.info("Triggering Stage 1…")
 
     if not LITE:
         command = (
             "Tools/autotest/sim_vehicle.py -v ArduCopter --add-param-file drone.parm "
-            "--custom-location 37.241861,-115.796917,0,340 -f gazebo-iris "
+            f"--custom-location {custom_location} -f gazebo-iris "
             "--no-rebuild --no-mavproxy --sim-address=10.13.0.5 "
             "-A '--serial0=uart:/dev/ttyACM0:57600'"
         )
     else:
         command = (
             "Tools/autotest/sim_vehicle.py -v ArduCopter --add-param-file drone.parm "
-            "--custom-location 37.241861,-115.796917,0,340 -f quad "
+            f"--custom-location {custom_location} -f quad "
             "--no-rebuild --no-mavproxy "
             "-A '--serial0=uart:/dev/ttyACM0:57600'"
         )
-
+    
     logger.info("Executing: %s", command)
 
     output_stream = []
@@ -114,7 +147,6 @@ def stage1():
         LITE=LITE,
         cc_url=CC_URL_PUBLIC,
     )
-
 
 @bp.route("/stage2", methods=["POST"])
 def stage2():

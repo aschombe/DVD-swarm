@@ -2,6 +2,7 @@ COMPOSE_FILE  := docker-compose.swarm.yml
 INSTANCES     ?= 9
 RAM_GB        ?= 16
 PYTHON        := python3
+NUM_WAYPOINTS ?= 10
 
 .PHONY: help generate generate-ram pull up down status logs sysctl-check
 
@@ -30,9 +31,9 @@ _NO_GCS_FLAG := $(if $(NO_GCS),--no-gcs,)
 
 generate:
 ifdef INSTANCES
-	$(PYTHON) generate_swarm.py --instances $(INSTANCES) $(_NO_GCS_FLAG) --out $(COMPOSE_FILE)
+	$(PYTHON) generate_swarm.py --instances $(INSTANCES) $(_NO_GCS_FLAG) --num-waypoints $(NUM_WAYPOINTS) --out $(COMPOSE_FILE)
 else
-	$(PYTHON) generate_swarm.py --ram-gb $(RAM_GB) $(_NO_GCS_FLAG) --out $(COMPOSE_FILE)
+	$(PYTHON) generate_swarm.py --ram-gb $(RAM_GB) $(_NO_GCS_FLAG) --num-waypoints $(NUM_WAYPOINTS) --out $(COMPOSE_FILE)
 endif
 
 # ── Image management ──────────────────────────────────────────────────────────

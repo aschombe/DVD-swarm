@@ -43,6 +43,7 @@ Usage:
     python3 generate_swarm.py --ram-gb 32            # auto-size for 32 GB host
     python3 generate_swarm.py --waypoints-dir missions   # inject waypoints (default)
     python3 generate_swarm.py --no-waypoints         # skip waypoints entirely
+    python3 generate_swarm.py --num-waypoints 20     # more waypoints per instance
     python3 generate_swarm.py --out custom.yml
 """
 
@@ -50,6 +51,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+import math
+import random
 from pathlib import Path
 from typing import Any
 
@@ -99,6 +102,35 @@ _OS_OVERHEAD_GB = 2.0
 _MB_PER_INSTANCE_NO_GCS = 1024  # ~1 GB: FC(256) + CC(512) + SIM(256)
 _MB_PER_INSTANCE_WITH_GCS = 1536  # ~1.5 GB: adds GCS(512)
 
+EARTH_RADIUS_KM = 6371
+
+# ── WAYPOINT MATH ENGINE ──────────────────────────────────────────────────────
+def generate_procedural_waypoints(center_lat, center_lon, max_radius_km, min_radius_km, min_alt, max_alt, max_alt_change, num_waypoints):
+    current_alt = random.uniform(min_alt, max_alt)
+    waypoints = [(center_lat, center_lon, current_alt)]
+    
+    for _ in range(1, num_waypoints):
+        angle = random.uniform(0, 2 * math.pi)
+        step_distance_km = random.uniform(min_radius_km, max_radius_km)
+        
+        lat_offset_rad = (step_distance_km / EARTH_RADIUS_KM) * math.cos(angle)
+        lon_offset_rad = (step_distance_km / (EARTH_RADIUS_KM * math.cos(math.radians(waypoints[-1][0])))) * math.sin(angle)
+
+        waypoint_lat = waypoints[-1][0] + math.degrees(lat_offset_rad)
+        waypoint_lon = waypoints[-1][1] + math.degrees(lon_offset_rad)
+        
+        alt_shift = random.uniform(-max_alt_change, max_alt_change)
+        current_alt = max(min_alt, min(max_alt, current_alt + alt_shift))
+        waypoints.append((waypoint_lat, waypoint_lon, current_alt))
+        
+    return waypoints
+
+def save_waypoints_to_file(waypoints, filename: Path):
+    with filename.open('w') as file:
+        for lat, lon, alt in waypoints:
+            file.write(f"{lat},{lon},{alt:.2f}\n")
+
+# ── DOCKER SERVICE BUILDERS ───────────────────────────────────────────────────
 
 def _mem_limits(service: str) -> dict[str, str]:
     """Return mem_limit and memswap_limit keys for a service."""
@@ -193,7 +225,7 @@ def companion_computer_service(n: int, waypoints_dir: Path | None) -> dict[str, 
     }
 
 
-def ground_control_station_service(n: int) -> dict[str, Any]:
+def ground_control_station_service(n: int, waypoints_dir: Path | None) -> dict[str, Any]:
     """Build the ground-control-station-lite service definition for instance N.
 
     X11 display, GPU device, and WiFi are all stripped for headless operation.
@@ -202,6 +234,23 @@ def ground_control_station_service(n: int) -> dict[str, Any]:
     logs_path = str(Path(f"configs/data/raw/instance-{n}").resolve())
     _stages = str(Path("ground-control-station/stages").resolve())
     _missions = str(Path("ground-control-station/missions").resolve())
+    
+    volumes = [
+        # Qt requires /etc/machine-id — available on any Linux host
+        "/etc/machine-id:/etc/machine-id:ro",
+        # Read-only access to FC logs for post-flight-analysis.py (Stage 5)
+        f"{logs_path}:/ardupilot/logs:ro",
+        # Patch all stage scripts (fixes autopilot, takeoff altitude, post-flight analysis)
+        f"{_stages}:/opt/gcs/stages:ro",
+        # Patch missions
+        f"{_missions}:/opt/gcs/missions",
+    ]
+    
+    # MOUNT THE DYNAMIC ROUTE FOR AUTOPILOT-FLIGHT.PY TO READ
+    wp_host = resolve_waypoints(n, waypoints_dir)
+    if wp_host is not None:
+        volumes.append(f"{wp_host}:/opt/gcs/missions/swarm_route.txt:ro")
+
     return {
         "image": IMAGES["ground-control-station"],
         "container_name": f"ground-control-station-lite-{n}",
@@ -214,16 +263,7 @@ def ground_control_station_service(n: int) -> dict[str, Any]:
             "XDG_RUNTIME_DIR=/tmp",
             f"SWARM_INSTANCE={n}",  # stage scripts use this to derive companion TCP IP
         ],
-        "volumes": [
-            # Qt requires /etc/machine-id — available on any Linux host
-            "/etc/machine-id:/etc/machine-id:ro",
-            # Read-only access to FC logs for post-flight-analysis.py (Stage 5)
-            f"{logs_path}:/ardupilot/logs:ro",
-            # Patch all stage scripts (fixes autopilot, takeoff altitude, post-flight analysis)
-            f"{_stages}:/opt/gcs/stages:ro",
-            # Patch missions (adds zigzag waypoints at 10m / ~55m spacing)
-            f"{_missions}:/opt/gcs/missions:ro",
-        ],
+        "volumes": volumes,
         "networks": {
             f"dvd-net-{n}": {"ipv4_address": GCS_IP_TEMPLATE.format(n=n)},
         },
@@ -275,7 +315,7 @@ def instance_services(
         f"simulator-lite-{n}": simulator_service(n),
     }
     if include_gcs:
-        services[f"ground-control-station-lite-{n}"] = ground_control_station_service(n)
+        services[f"ground-control-station-lite-{n}"] = ground_control_station_service(n, waypoints_dir)
     return services
 
 
@@ -384,6 +424,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--num-waypoints", 
+        type=int, 
+        default=10, 
+        help="Waypoints per instance"
+    )
+    parser.add_argument(
+        "--min-alt", 
+        type=float, 
+        default=30.0
+    )
+    parser.add_argument(
+        "--max-alt", 
+        type=float, 
+        default=100.0
+    )
+
+    parser.add_argument(
         "--out",
         type=Path,
         default=Path("docker-compose.swarm.yml"),
@@ -413,19 +470,31 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: instances must be <= 253, got {n}", file=sys.stderr)
         return 1
 
-    # Resolve waypoints directory
+    # Resolve waypoints directory and generate procedural routes
     waypoints_dir: Path | None
     if args.no_waypoints:
         waypoints_dir = None
     else:
         waypoints_dir = args.waypoints_dir
-        if not waypoints_dir.is_dir():
-            print(
-                f"warning: --waypoints-dir '{waypoints_dir}' not found — "
-                "waypoints will not be mounted. Create the directory or pass --no-waypoints.",
-                file=sys.stderr,
+        waypoints_dir.mkdir(parents=True, exist_ok=True)
+        
+        # GENERATE UNIQUE ROUTES FOR EACH DRONE
+        print("\n--> Generating procedural 3D routes for swarm...")
+        for i in range(1, n + 1):
+            start_lat = random.uniform(-90.0, 90.0)
+            start_lon = random.uniform(-180.0, 180.0)
+            print(f"  [+] Generating route for Drone {i} starting at ({start_lat:.4f}, {start_lon:.4f})...")
+
+            wp_data = generate_procedural_waypoints(
+                center_lat=start_lat, center_lon=start_lon,
+                max_radius_km=1.0, min_radius_km=0.1,
+                min_alt=args.min_alt, max_alt=args.max_alt, max_alt_change=10.0,
+                num_waypoints=args.num_waypoints
             )
-            waypoints_dir = None
+            save_waypoints_to_file(wp_data, waypoints_dir / f"waypoints_{i}.txt")
+            print(f"  [+] Generated route for Drone {i} -> missions/waypoints_{i}.txt")
+        print("--> Route generation complete.\n")
+
 
     services_per = 3 + (1 if args.include_gcs else 0)
     mb_per = _MB_PER_INSTANCE_WITH_GCS if args.include_gcs else _MB_PER_INSTANCE_NO_GCS

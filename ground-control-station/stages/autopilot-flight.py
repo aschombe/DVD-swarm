@@ -49,7 +49,7 @@ def connect_to_drone(connection_string, timeout=30, retries=5):
 
 
 # Read waypoints from file - zigzag/square pattern at 10m altitude, ~55m between points
-waypoints = read_waypoints("/opt/gcs/missions/waypoints_custom_zigzag_square.txt")
+waypoints = read_waypoints("/opt/gcs/missions/swarm_route.txt")
 
 master = connect_to_drone(connection_string)
 # Start mission upload
