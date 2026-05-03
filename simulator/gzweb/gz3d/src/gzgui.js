@@ -358,7 +358,7 @@ document.addEventListener("DOMContentLoaded", function() {
         $('#stage1').addClass('active-stage-btn');
         // $this.prop('disabled', true);
         $('#stage2').prop('disabled', false);
-        
+
         // wait for 5 seconds
       }, 8000);
     }

@@ -1,3 +1,4 @@
+import os
 import time
 
 from pymavlink import mavutil
@@ -27,9 +28,7 @@ def set_mode_rtl(master):
 
 # Connect to companion computer's mavlink-routerd TCP port directly.
 # UDP 14550 is held by mavproxy.py in this container — use TCP 5760 instead.
-import os as _os
-
-_instance = _os.getenv("SWARM_INSTANCE", "0")
+_instance = os.getenv("SWARM_INSTANCE", "0")
 connection_string = f"tcp:10.13.{_instance}.3:5760"
 master = mavutil.mavlink_connection(connection_string)
 master.wait_heartbeat()

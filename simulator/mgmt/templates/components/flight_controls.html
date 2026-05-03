@@ -11,46 +11,46 @@
         Reset
       </button>
     </div>
-  
+
     <div class="stage-item"><span>1.</span> <button id="stage1" class="flight-stage-btn" disabled>Initial Boot</button></div>
     <div class="stage-item"><span>2.</span> <button id="stage2" class="flight-stage-btn" disabled>Arm & Take-Off</button></div>
     <div class="stage-item"><span>3.</span> <button id="stage3" class="flight-stage-btn" disabled>Autopilot Flight</button></div>
     <div class="stage-item"><span>4.</span> <button id="stage4" class="flight-stage-btn" disabled>Emergency/RTH Landing</button></div>
     <div class="stage-item"><span>5.</span> <button id="stage5" class="flight-stage-btn" disabled>Post-Flight Analysis</button></div>
   </div>
-  
+
   <!-- Toast container -->
   <div id="toast" role="status" aria-live="polite" aria-atomic="true" style="display:none;
     position:fixed; right:16px; bottom:16px; z-index:2000; padding:10px 14px; border-radius:8px;
     background:#111; color:#fff; box-shadow:0 6px 20px rgba(0,0,0,.25); max-width:60vw;
     word-break:break-word; font-size:14px; line-height:1.3;"></div>
-  
+
   <script>
     // --- Toast utility (clears old timer on every show) ---
     window.Toast = (() => {
       let timer = null;
       const el = () => document.getElementById('toast');
-  
+
       function show(message, { variant = 'info', persist = false, duration = 2000 } = {}) {
         const node = el(); if (!node) return;
         if (timer) { clearTimeout(timer); timer = null; }
-  
+
         node.textContent = message;
         node.style.display = 'block';
         node.style.background = (variant === 'success') ? '#2d6a4f'
                           : (variant === 'error')   ? '#7a1f1f'
                           : '#111';
-  
+
         if (!persist) timer = setTimeout(hide, duration);
       }
-  
+
       function hide() {
         const node = el(); if (!node) return;
         node.style.display = 'none';
         node.textContent = '';
         if (timer) { clearTimeout(timer); timer = null; }
       }
-  
+
       return {
         show, hide,
         info:    (m, o={}) => show(m, { variant: 'info',    ...o }),
@@ -59,27 +59,27 @@
         replace: show
       };
     })();
-  
+
     // --- Stage status renderer (handles loader markup & cleanup) ---
     function setStageStatus(n, status) {
       const b = document.getElementById('stage'+n);
       if (!b) return;
-  
+
       // Remember the base label the first time we see this button
       if (!b.dataset.label) b.dataset.label = b.textContent.trim();
-  
+
       const s = String(status).toLowerCase();
-  
+
       // Reset base classes
       b.disabled = true;
       b.classList.remove('active-stage-btn','loading-stage-btn','flight-stage-btn');
-  
+
       // Leaving loading? remove loader & restore label
       if (s !== 'loading') {
         b.querySelector('.loading-stage-img')?.remove();
         b.textContent = b.dataset.label;
       }
-  
+
       switch (s) {
         case 'disabled':
           b.classList.add('flight-stage-btn');
@@ -102,7 +102,7 @@
           break;
       }
     }
-  
+
     async function callStage(endpoint, body) {
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -112,7 +112,7 @@
       if (!res.ok) throw new Error(await res.text().catch(()=> ''));
       return res;
     }
-  
+
     // --- Reset logic (moved out of gzweb) ---
     async function doResetFlow() {
       let proceed = true;
@@ -130,20 +130,20 @@
         proceed = window.confirm('Reset simulator and clear logs?');
       }
       if (!proceed) return;
-  
+
       Toast.info('Resetting simulator...', { persist: true });
       try {
         await fetch('/reset', { method:'POST' });
-  
+
         for (let i=1;i<=5;i++) setStageStatus(i,'disabled');
         setStageStatus(1,'enabled');
-  
+
         const iframe = document.getElementById('sim-iframe');
         if (iframe && iframe.contentWindow) {
           try { iframe.contentWindow.postMessage("resetWorldCallback", "http://localhost:8080"); } catch(_) {}
           iframe.src = iframe.src;
         }
-  
+
         Toast.success('Simulator reset ✅');
         setTimeout(()=>window.location.reload(), 1200);
       } catch (e) {
@@ -151,7 +151,7 @@
       }
     }
     document.getElementById('reset-sim')?.addEventListener('click', doResetFlow);
-  
+
     // --- Click bindings for stages (show Initiating toast, set loading -> call -> set next) ---
     function bindStageClicks(){
       const actions = {
@@ -228,7 +228,7 @@
         if (btn) btn.addEventListener('click', actions[i]);
       }
     }
-  
+
     // --- Initialize from server-provided window.__STAGES__ ---
     (function primeFromServer(){
       try {
@@ -240,7 +240,7 @@
         });
       } catch(e) { setStageStatus(1,'enabled'); }
     })();
-  
+
     // --- Optional: react to messages from iframe (if still present) ---
     window.addEventListener('message', (event) => {
       const m = String(event.data || '');
@@ -254,9 +254,9 @@
         }
       }
     });
-  
+
     bindStageClicks();
-  
+
     // Exported helpers
     window.doResetFlow = doResetFlow;
     window.dvdResetUI = function(){
@@ -265,4 +265,3 @@
       Toast.info('Simulator reset.', { duration: 1800 });
     };
   </script>
-  

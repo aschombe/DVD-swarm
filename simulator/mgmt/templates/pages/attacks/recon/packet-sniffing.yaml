@@ -12,7 +12,7 @@ sections:
     content: |
       MAVLink packet sniffing involves intercepting the MAVLink messages exchanged between UAVs
       (Unmanned Aerial Vehicles) and ground control stations or between UAVs in a network.<br><br>
-      
+
       By analyzing the captured packets, you can
       gain insights into the drone's operational status, commands being sent or received, and
       how the system handles various data types.

@@ -40,6 +40,8 @@ Usage:
     python3 generate_swarm.py --no-gcs               # 14 instances (16 GB, no GCS)
     python3 generate_swarm.py --include-gcs          # explicit (backward compat, same as default)
     python3 generate_swarm.py --instances 20
+    python3 generate_swarm.py --instances 5 --auto-start-index
+    python3 generate_swarm.py --instances 5 --start-index 6
     python3 generate_swarm.py --ram-gb 32            # auto-size for 32 GB host
     python3 generate_swarm.py --waypoints-dir missions   # inject waypoints (default)
     python3 generate_swarm.py --no-waypoints         # skip waypoints entirely
@@ -49,7 +51,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
+import socket
+import subprocess
 import sys
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +68,12 @@ import yaml
 
 BASE_COMPANION_PORT = 3000
 BASE_SIMULATOR_PORT = 8000
+SERVICE_PREFIXES = (
+    "flight-controller-lite",
+    "companion-computer-lite",
+    "ground-control-station-lite",
+    "simulator-lite",
+)
 
 # ── Subnet allocation ─────────────────────────────────────────────────────────
 # Instance N gets subnet 10.13.N.0/24 with services on .2–.5
@@ -299,9 +311,74 @@ def instance_volumes(n: int) -> dict[str, None]:
     }
 
 
+def _is_port_available(port: int) -> bool:
+    """Return True if a local TCP port can be used for a new bind."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind(("0.0.0.0", port))
+        except OSError:
+            return False
+        return True
+
+
+def _running_instance_indexes() -> set[int]:
+    """Return DVD swarm indexes already represented by running containers."""
+    try:
+        result = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return set()
+
+    if result.returncode != 0:
+        return set()
+
+    pattern = re.compile(
+        rf"^(?:{'|'.join(re.escape(prefix) for prefix in SERVICE_PREFIXES)})-(\d+)$"
+    )
+    indexes: set[int] = set()
+    for name in result.stdout.splitlines():
+        match = pattern.match(name.strip())
+        if match:
+            indexes.add(int(match.group(1)))
+    return indexes
+
+
+def _index_block_available(start_index: int, n_instances: int, occupied: set[int]) -> bool:
+    """Return True when all indexes and host ports in a candidate block are free."""
+    for n in range(start_index, start_index + n_instances):
+        if n in occupied:
+            return False
+        if not _is_port_available(BASE_COMPANION_PORT + n):
+            return False
+        if not _is_port_available(BASE_SIMULATOR_PORT + n):
+            return False
+    return True
+
+
+def find_start_index(n_instances: int) -> int:
+    """Find the next free contiguous instance range for a generated stack."""
+    occupied = _running_instance_indexes()
+    candidate = max(occupied, default=0) + 1
+
+    while candidate + n_instances - 1 <= 253:
+        if _index_block_available(candidate, n_instances, occupied):
+            return candidate
+        candidate += 1
+
+    raise ValueError(
+        f"could not find {n_instances} free contiguous instances at or below index 253"
+    )
+
+
 def generate(
     n_instances: int,
     *,
+    start_index: int = 1,
     include_gcs: bool,
     waypoints_dir: Path | None,
 ) -> dict[str, Any]:
@@ -310,7 +387,7 @@ def generate(
     networks: dict[str, Any] = {}
     volumes: dict[str, Any] = {}
 
-    for n in range(1, n_instances + 1):
+    for n in range(start_index, start_index + n_instances):
         services.update(instance_services(n, include_gcs=include_gcs, waypoints_dir=waypoints_dir))
         networks[f"dvd-net-{n}"] = instance_network(n)
         volumes.update(instance_volumes(n))
@@ -364,6 +441,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Omit QGroundControl (~512 MB saved per instance)",
     )
 
+    start_group = parser.add_mutually_exclusive_group()
+    start_group.add_argument(
+        "--start-index",
+        type=int,
+        default=1,
+        metavar="N",
+        help="First instance index to generate",
+    )
+    start_group.add_argument(
+        "--auto-start-index",
+        action="store_true",
+        help=(
+            "Start after running DVD containers and skip indexes whose companion "
+            "or simulator host ports are already open"
+        ),
+    )
+
     wp_group = parser.add_mutually_exclusive_group()
     wp_group.add_argument(
         "--waypoints-dir",
@@ -409,8 +503,22 @@ def main(argv: list[str] | None = None) -> int:
     if n < 1:
         print(f"error: computed instances must be >= 1, got {n}", file=sys.stderr)
         return 1
-    if n > 253:
-        print(f"error: instances must be <= 253, got {n}", file=sys.stderr)
+
+    try:
+        start_index = find_start_index(n) if args.auto_start_index else args.start_index
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    end_index = start_index + n - 1
+    if start_index < 1:
+        print(f"error: start index must be >= 1, got {start_index}", file=sys.stderr)
+        return 1
+    if end_index > 253:
+        print(
+            f"error: instance range {start_index}–{end_index} exceeds maximum index 253",
+            file=sys.stderr,
+        )
         return 1
 
     # Resolve waypoints directory
@@ -433,20 +541,23 @@ def main(argv: list[str] | None = None) -> int:
     # Pre-create log directories with world-writable permissions.
     # ArduPilot runs as uid=1000 (ardupilot) inside the FC container; Docker
     # creates bind-mount directories as root:root 755 which blocks writes.
-    for i in range(1, n + 1):
+    for i in range(start_index, end_index + 1):
         log_dir = Path(f"configs/data/raw/instance-{i}")
         log_dir.mkdir(parents=True, exist_ok=True)
-        try:
+        with suppress(PermissionError):
             log_dir.chmod(0o777)
-        except PermissionError:
-            pass  # directory owned by root (Docker); chmod via docker exec if needed
 
-    compose = generate(n, include_gcs=args.include_gcs, waypoints_dir=waypoints_dir)
+    compose = generate(
+        n,
+        start_index=start_index,
+        include_gcs=args.include_gcs,
+        waypoints_dir=waypoints_dir,
+    )
 
     # Report which waypoints resolution each instance got
     wp_summary: dict[str, list[int]] = {"per-instance": [], "shared": [], "none": []}
     if waypoints_dir is not None:
-        for i in range(1, n + 1):
+        for i in range(start_index, end_index + 1):
             per = waypoints_dir / f"waypoints_{i}.txt"
             shared = waypoints_dir / "waypoints.txt"
             if per.exists():
@@ -465,16 +576,17 @@ def main(argv: list[str] | None = None) -> int:
         f"# Generated by generate_swarm.py — {n} DVD litemode instances\n"
         "# Do NOT edit by hand. Re-run: python3 generate_swarm.py [OPTIONS]\n"
         "#\n"
+        f"# Instance range       : {start_index}–{end_index}\n"
         f"# Services per instance : {services_per}  ({gcs_note})\n"
         f"# RAM budget            : ~{mb_per} MB/instance\n"
         "#\n"
         "# Port mapping:\n"
-        f"#   companion-computer : {BASE_COMPANION_PORT + 1}"
-        f"–{BASE_COMPANION_PORT + n}\n"
-        f"#   simulator mgmt     : {BASE_SIMULATOR_PORT + 1}"
-        f"–{BASE_SIMULATOR_PORT + n}\n"
+        f"#   companion-computer : {BASE_COMPANION_PORT + start_index}"
+        f"–{BASE_COMPANION_PORT + end_index}\n"
+        f"#   simulator mgmt     : {BASE_SIMULATOR_PORT + start_index}"
+        f"–{BASE_SIMULATOR_PORT + end_index}\n"
         "#\n"
-        f"# Subnets: 10.13.1.0/24 – 10.13.{n}.0/24\n"
+        f"# Subnets: 10.13.{start_index}.0/24 – 10.13.{end_index}.0/24\n"
         f"# Waypoints dir       : {waypoints_dir or 'none (--no-waypoints)'}\n\n"
     )
 
@@ -488,9 +600,14 @@ def main(argv: list[str] | None = None) -> int:
     args.out.write_text(output)
 
     print(f"Written {n} instances ({services_per} services each) → {args.out}")
+    print(f"  instance range : {start_index}–{end_index}")
     print(f"  RAM estimate    : ~{n * mb_per // 1024} GB / {n * mb_per} MB")
-    print(f"  companion ports : {BASE_COMPANION_PORT + 1}–{BASE_COMPANION_PORT + n}")
-    print(f"  simulator ports : {BASE_SIMULATOR_PORT + 1}–{BASE_SIMULATOR_PORT + n}")
+    print(
+        f"  companion ports : {BASE_COMPANION_PORT + start_index}–{BASE_COMPANION_PORT + end_index}"
+    )
+    print(
+        f"  simulator ports : {BASE_SIMULATOR_PORT + start_index}–{BASE_SIMULATOR_PORT + end_index}"
+    )
     if not args.include_gcs:
         print("  GCS             : excluded (pass --include-gcs to add)")
     if waypoints_dir is not None:

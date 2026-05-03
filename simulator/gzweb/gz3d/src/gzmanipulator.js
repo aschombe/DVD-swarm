@@ -972,7 +972,7 @@ GZ3D.Manipulator = function(camera, mobile, domElement, doc)
 
     event.preventDefault();
 
-    
+
     var planeIntersect = intersectObjects(event,
         [intersectionPlanes[currentPlane]]);
 

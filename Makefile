@@ -1,7 +1,11 @@
-COMPOSE_FILE  := docker-compose.swarm.yml
-INSTANCES     ?= 9
+STACK         ?= swarm
+COMPOSE_FILE  ?= docker-compose.$(STACK).yml
+PROJECT_NAME  ?= dvd-$(STACK)
+INSTANCES     ?=
 RAM_GB        ?= 16
 PYTHON        := python3
+START_INDEX   ?= auto
+COMPOSE       := docker compose -p $(PROJECT_NAME) -f $(COMPOSE_FILE)
 
 .PHONY: help generate generate-ram pull up down status logs sysctl-check
 
@@ -12,6 +16,8 @@ help:
 	@echo "  make generate NO_GCS=1         Omit QGroundControl (~14 instances)"
 	@echo "  make generate INSTANCES=5      Override instance count explicitly"
 	@echo "  make generate RAM_GB=32        Auto-size for a different host"
+	@echo "  make generate STACK=survey     Use docker-compose.survey.yml"
+	@echo "  make generate START_INDEX=12   Start at a fixed instance index"
 	@echo ""
 	@echo "  make pull                      Pull all lite images (run once before 'up')"
 	@echo "  make up                        Start all instances detached"
@@ -22,31 +28,47 @@ help:
 	@echo ""
 	@echo "Memory per instance: ~1.5 GB with GCS (default) | ~1 GB no GCS"
 	@echo "Recommended for 16 GB host: 9 instances (with GCS)  |  14 instances (no GCS)"
+	@echo ""
+	@echo "Two-terminal example: 50 instances each, collision-free"
+	@echo "  Terminal 1:"
+	@echo "    make generate INSTANCES=50 STACK=swarm-a START_INDEX=1"
+	@echo "    make up STACK=swarm-a"
+	@echo "  Terminal 2:"
+	@echo "    make generate INSTANCES=50 STACK=swarm-b START_INDEX=51"
+	@echo "    make up STACK=swarm-b"
+	@echo ""
+	@echo "  swarm-a: instances 1-50, companion ports 3001-3050,"
+	@echo "           simulator ports 8001-8050,"
+	@echo "           subnets 10.13.1.0/24 through 10.13.50.0/24"
+	@echo "  swarm-b: instances 51-100, companion ports 3051-3100,"
+	@echo "           simulator ports 8051-8100,"
+	@echo "           subnets 10.13.51.0/24 through 10.13.100.0/24"
 
 # ── Generate ──────────────────────────────────────────────────────────────────
 
 # GCS is on by default; NO_GCS=1 turns it off
 _NO_GCS_FLAG := $(if $(NO_GCS),--no-gcs,)
+_START_FLAG  := $(if $(filter auto,$(START_INDEX)),--auto-start-index,--start-index $(START_INDEX))
 
 generate:
 ifdef INSTANCES
-	$(PYTHON) generate_swarm.py --instances $(INSTANCES) $(_NO_GCS_FLAG) --out $(COMPOSE_FILE)
+	$(PYTHON) generate_swarm.py --instances $(INSTANCES) $(_NO_GCS_FLAG) $(_START_FLAG) --out $(COMPOSE_FILE)
 else
-	$(PYTHON) generate_swarm.py --ram-gb $(RAM_GB) $(_NO_GCS_FLAG) --out $(COMPOSE_FILE)
+	$(PYTHON) generate_swarm.py --ram-gb $(RAM_GB) $(_NO_GCS_FLAG) $(_START_FLAG) --out $(COMPOSE_FILE)
 endif
 
 # ── Image management ──────────────────────────────────────────────────────────
 
 pull: $(COMPOSE_FILE)
-	docker compose -f $(COMPOSE_FILE) pull
+	$(COMPOSE) pull
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 up: $(COMPOSE_FILE)
-	docker compose -f $(COMPOSE_FILE) up -d
+	$(COMPOSE) up -d
 
 down: $(COMPOSE_FILE)
-	docker compose -f $(COMPOSE_FILE) down -v --remove-orphans
+	$(COMPOSE) down -v --remove-orphans
 
 # ── Observability ─────────────────────────────────────────────────────────────
 
@@ -58,7 +80,7 @@ status:
 	@echo "  simulators            : $$(docker ps -q --filter 'name=simulator-lite-' | wc -l)"
 
 logs: $(COMPOSE_FILE)
-	docker compose -f $(COMPOSE_FILE) logs -f
+	$(COMPOSE) logs -f
 
 # ── Host prerequisites ────────────────────────────────────────────────────────
 

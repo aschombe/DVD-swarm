@@ -10,8 +10,8 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      The GPS Offset Attack involves manipulating the GPS position offset parameters to induce a GPS glitch. 
-      By setting the GPS offsets to their maximum values, the drone's position data becomes highly inaccurate, 
+      The GPS Offset Attack involves manipulating the GPS position offset parameters to induce a GPS glitch.
+      By setting the GPS offsets to their maximum values, the drone's position data becomes highly inaccurate,
       causing the EKF (Extended Kalman Filter) to detect inconsistencies and triggering a failsafe that forces the drone to land.
 
   - title: Resources
@@ -68,7 +68,7 @@ sections:
               master = connect_drone(target_ip, target_port)
 
               # Define GPS position parameters
-              gps_params = ['GPS_POS1_X', 'GPS_POS1_Y', 'GPS_POS1_Z', 
+              gps_params = ['GPS_POS1_X', 'GPS_POS1_Y', 'GPS_POS1_Z',
                             'GPS_POS2_X', 'GPS_POS2_Y', 'GPS_POS2_Z']
 
               # Set the maximum offset for all GPS position parameters

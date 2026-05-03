@@ -12,9 +12,9 @@
         </feMerge>
     </filter>
     <g filter="url(#AI_Shadow_1)">
-        <polygon fill="#FFFFFF" points="211.838,160.802 200.343,132.368 200.338,132.386 200.333,132.368 188.838,160.802 200.333,207 
+        <polygon fill="#FFFFFF" points="211.838,160.802 200.343,132.368 200.338,132.386 200.333,132.368 188.838,160.802 200.333,207
 		200.338,206.977 200.343,207 	" />
-        <polygon fill="none" stroke="#B2B2B2" stroke-width="0.5" stroke-miterlimit="10" points="211.838,160.802 200.343,132.368 
+        <polygon fill="none" stroke="#B2B2B2" stroke-width="0.5" stroke-miterlimit="10" points="211.838,160.802 200.343,132.368
 		200.338,132.386 200.333,132.368 188.838,160.802 200.333,207 200.338,206.977 200.343,207 	" />
     </g>
     <g filter="url(#AI_Shadow_1)">

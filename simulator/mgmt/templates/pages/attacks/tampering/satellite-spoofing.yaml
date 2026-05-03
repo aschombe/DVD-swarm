@@ -10,8 +10,8 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      Satellite spoofing involves sending false information about the number of satellites 
-      visible to the drone to the Ground Control Station (GCS). This can mislead the GCS 
+      Satellite spoofing involves sending false information about the number of satellites
+      visible to the drone to the Ground Control Station (GCS). This can mislead the GCS
       about the GPS signal quality and the overall reliability of the drone's positioning system.
 
   - title: Resources

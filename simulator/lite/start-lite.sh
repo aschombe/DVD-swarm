@@ -18,7 +18,7 @@ ROSBRIDGE_PID=$!
 
 # 3) Start mgmt (parent app) on :8000
 echo "[lite] starting mgmt on :8000..."
-gunicorn --bind 0.0.0.0:8000 'simulator.mgmt:create_app()' & 
+gunicorn --bind 0.0.0.0:8000 'simulator.mgmt:create_app()' &
 MGMT_PID=$!
 
 # 4) Start viewer (Leaflet + mav2rest proxy) on :8080

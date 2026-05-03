@@ -10,7 +10,7 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      A geofencing attack involves sending malicious MAVLink messages to change the geofencing settings of a drone. 
+      A geofencing attack involves sending malicious MAVLink messages to change the geofencing settings of a drone.
       This can be used to disable the geofence, change its boundaries, or alter its behavior upon breach, allowing the drone to enter restricted or dangerous areas.
 
   - title: Resources

