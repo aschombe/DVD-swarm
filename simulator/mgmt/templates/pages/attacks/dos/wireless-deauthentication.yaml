@@ -10,9 +10,9 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      A WiFi deauthentication attack targets the communication between two devices on a WiFi network. 
-      By sending deauthentication frames to one or both devices, the attacker forces them to disconnect 
-      from the network. This can be particularly disruptive for systems that rely on continuous network 
+      A WiFi deauthentication attack targets the communication between two devices on a WiFi network.
+      By sending deauthentication frames to one or both devices, the attacker forces them to disconnect
+      from the network. This can be particularly disruptive for systems that rely on continuous network
       connectivity, such as drones controlled by a Ground Control Station (GCS) via WiFi.
 
   - title: Resources

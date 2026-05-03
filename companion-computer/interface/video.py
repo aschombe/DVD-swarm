@@ -1,19 +1,21 @@
-import rospy
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
 import cv2
-from flask import Response
+import rospy
+from cv_bridge import CvBridge
+from sensor_msgs.msg import Image
+
 
 class VideoStreamer:
     def __init__(self):
         self.bridge = CvBridge()
-        self.image_subscriber = rospy.Subscriber('/webcam/image_raw', Image, self.image_callback, queue_size=1)
+        self.image_subscriber = rospy.Subscriber(
+            "/webcam/image_raw", Image, self.image_callback, queue_size=1
+        )
         self.frame = None
 
     def image_callback(self, msg):
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            ret, jpeg = cv2.imencode('.jpg', cv_image)
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+            ret, jpeg = cv2.imencode(".jpg", cv_image)
             if ret:
                 self.frame = jpeg.tobytes()
         except Exception as e:
@@ -22,14 +24,15 @@ class VideoStreamer:
     def get_frame(self):
         while not rospy.is_shutdown():
             if self.frame is not None:
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + self.frame + b'\r\n')
+                yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + self.frame + b"\r\n")
             rospy.sleep(0.1)
 
+
 def main():
-    rospy.init_node('camera_video_streamer', anonymous=True)
-    video_streamer = VideoStreamer()
+    rospy.init_node("camera_video_streamer", anonymous=True)
+    VideoStreamer()
     rospy.spin()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

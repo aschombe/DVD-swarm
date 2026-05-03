@@ -20,14 +20,14 @@ sections:
     collapsible: true
     steps:
       - title: Step 1
-        description: | 
+        description: |
           Install pymavlink.
 
           ```pip install pymavlink
           ```
 
       - title: Step 2
-        description: | 
+        description: |
           Create a Python script to set the new home position. Replace `connection_string`, `latitude`, `longitude`, and `altitude` with appropriate values.
 
           ```from pymavlink import mavutil

@@ -1,10 +1,12 @@
 # simulator/mgmt/routes/gcs.py
-from flask import make_response, request
 from docker.errors import NotFound
+from flask import make_response, request
+
 from . import bp
 from .utils import get_container
 
 GUIDE_URL = "https://github.com/nicholasaleks/Damn-Vulnerable-Drone/wiki/Running-QGround-Control-from-Apple-Silicon-(arm64)-hosts"
+
 
 def _is_macos_request() -> bool:
     """
@@ -19,11 +21,8 @@ def _is_macos_request() -> bool:
     ua = (request.user_agent.string or "").lower()
     if any(tok in ua for tok in ("iphone", "ipad", "ipod")):
         return False  # iOS often includes "like Mac OS X"
-    return (
-        request.user_agent.platform == "macos"
-        or "macintosh" in ua
-        or "mac os x" in ua
-    )
+    return request.user_agent.platform == "macos" or "macintosh" in ua or "mac os x" in ua
+
 
 @bp.route("/qgc", methods=["POST"])
 def open_qgc():
@@ -42,7 +41,9 @@ def open_qgc():
     try:
         container = get_container(container_name)
         if container.status != "running":
-            return make_response(f"Container {container_name} is not running (status: {container.status})", 400)
+            return make_response(
+                f"Container {container_name} is not running (status: {container.status})", 400
+            )
 
         for test_cmd, error_txt in [
             (f'test -f "{script_path}"', "Script not found"),

@@ -1,7 +1,7 @@
 # FLIGHT CONTROL UNIT CONTAINER
 FROM ubuntu:22.04
 
-EXPOSE 5760 9003 
+EXPOSE 5760 9003
 
 ARG COPTER_TAG=Copter-4.4
 ARG DEBIAN_FRONTEND=noninteractive
@@ -27,7 +27,7 @@ ENV VEHICLE ArduCopter
 RUN groupadd ${USER_NAME} --gid ${USER_GID}\
     && useradd -l -m ${USER_NAME} -u ${USER_UID} -g ${USER_GID} -s /bin/bash
 
-# Install prerequisites 
+# Install prerequisites
 # Install prerequisites and clear cache
 RUN apt-get update && apt-get install -y sudo socat net-tools lsb-release python3-pip tzdata git; git config --global url.https://github.com/.insteadOf git://github.com/
 

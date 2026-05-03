@@ -1,3 +1,4 @@
+import os
 import time
 
 from pymavlink import mavutil
@@ -45,18 +46,13 @@ def wait_for_ekf_status(master):
 # Connect to companion computer's mavlink-routerd TCP port directly.
 # mavproxy.py in the GCS container also binds udp:0.0.0.0:14550, so using UDP
 # here causes a race — stage scripts get starved. TCP 5760 has no competition.
-import os as _os
-
-_instance = _os.getenv("SWARM_INSTANCE", "0")
+_instance = os.getenv("SWARM_INSTANCE", "0")
 connection_string = f"tcp:10.13.{_instance}.3:5760"
 master = mavutil.mavlink_connection(connection_string)
 
 # Wait for the first heartbeat
 master.wait_heartbeat()
-print(
-    "Heartbeat from system (system %u component %u)"
-    % (master.target_system, master.target_component)
-)
+print(f"Heartbeat from system (system {master.target_system} component {master.target_component})")
 
 master.waypoint_clear_all_send()
 print("Clearing waypoints...")

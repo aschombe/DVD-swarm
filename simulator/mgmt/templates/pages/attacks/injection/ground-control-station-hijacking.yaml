@@ -10,12 +10,12 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      ARP spoofing involves sending false ARP (Address Resolution Protocol) messages to a network, associating the attacker's 
-      MAC address with the IP address of the target device (the GCS in this case). This allows the attacker to intercept, modify, 
+      ARP spoofing involves sending false ARP (Address Resolution Protocol) messages to a network, associating the attacker's
+      MAC address with the IP address of the target device (the GCS in this case). This allows the attacker to intercept, modify,
       or block communication to the target device, effectively taking control of the drone's communication.<br><br>
 
-      The goal of this attack is to intercept and control the communication between the drone and the Ground Control 
-      Station (GCS) by performing an ARP spoofing attack. This enables the attacker to impersonate the GCS, sending 
+      The goal of this attack is to intercept and control the communication between the drone and the Ground Control
+      Station (GCS) by performing an ARP spoofing attack. This enables the attacker to impersonate the GCS, sending
       and receiving commands from the drone.
 
   - title: Resources

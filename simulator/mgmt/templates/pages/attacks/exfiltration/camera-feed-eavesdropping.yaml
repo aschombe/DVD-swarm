@@ -39,8 +39,8 @@ sections:
           PORT     STATE SERVICE
           554/tcp  open  rtsp
           |_rtsp-methods: OPTIONS, DESCRIBE, ANNOUNCE, GET_PARAMETER, PAUSE, PLAY, RECORD, SETUP, SET_PARAMETER, TEARDOWN
-          | rtsp-url-brute: 
-          |   discovered: 
+          | rtsp-url-brute:
+          |   discovered:
           |_    rtsp://10.13.0.3/stream1
           3000/tcp open  ppp
 

@@ -12,7 +12,7 @@
         </feMerge>
     </filter>
     <g filter="url(#AI_Shadow_1)">
-        <polygon fill="#FFFFFF" stroke="#B2B2B2" stroke-width="0.5" stroke-miterlimit="10" points="76.445,196.417 68.082,200 
+        <polygon fill="#FFFFFF" stroke="#B2B2B2" stroke-width="0.5" stroke-miterlimit="10" points="76.445,196.417 68.082,200
 		76.423,203.583 184.334,203.583 184.334,196.417 	" />
         <path fill="#232323" stroke="#353535" stroke-width="0.5" stroke-miterlimit="10" d="M239.042,196.417
 		c-3.563-3.563-8.918,0-13.063,0c-0.787,0-3.148,0-3.148,0h-11.969c-1.51-4.271-5.573-7.337-10.362-7.337s-8.852,3.065-10.362,7.337

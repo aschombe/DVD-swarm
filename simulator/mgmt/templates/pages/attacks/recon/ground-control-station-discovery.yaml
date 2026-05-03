@@ -10,8 +10,8 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      The whole goal here is to witness both the source and destination for MAVLink telemetry and 
-      commands to determine the IP address for the ground control stations. You should be able to 
+      The whole goal here is to witness both the source and destination for MAVLink telemetry and
+      commands to determine the IP address for the ground control stations. You should be able to
       see commands and telemetry flowing between the companion computer and GCS IPs while the drone is flying around.
 
   - title: Resources
@@ -44,10 +44,10 @@ sections:
         description: |
           Connect to the drone simulation and use the flight state buttons to control the drone. This will generate MAVLink traffic that you can capture and analyze. Start Wireshark and run the following filter:
 
-          ```mavlink_proto 
+          ```mavlink_proto
           ```
 
-          From here you should be able to see the companion computer IP Address `10.13.0.3` and what seems to be a GCS IP Address `10.13.0.4` 
+          From here you should be able to see the companion computer IP Address `10.13.0.3` and what seems to be a GCS IP Address `10.13.0.4`
 
       - title: Step 4. Filter for GCS Packet Sniffing with Wireshark
         description: |
@@ -83,10 +83,10 @@ sections:
         description: |
           Connect to the drone simulation and use the flight state buttons to control the drone. This will generate MAVLink traffic that you can capture and analyze. Start Wireshark and run the following filter:
 
-          ```mavlink_proto 
+          ```mavlink_proto
           ```
 
-          From here you should be able to see the companion computer IP Address `192.168.13.1` and what seems to be a GCS IP Address `192.168.13.14` 
+          From here you should be able to see the companion computer IP Address `192.168.13.1` and what seems to be a GCS IP Address `192.168.13.14`
 
       - title: Step 4. Filter for GCS Packet Sniffing with Wireshark
         description: |

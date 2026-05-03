@@ -9,6 +9,7 @@ from mavlink_connection import set_parameter
 from models import TelemetryStatus, UdpDestination
 
 telemetry_bp = Blueprint("telemetry", __name__)
+telemetry_status = "Not Connected"
 
 
 # Add flight-controller template html render endpoint
@@ -31,8 +32,6 @@ def start_telemetry():
     udp_server_port = data.get("udp_server_port", 14550)
     enable_tcp_server = data.get("enable_tcp_server", False)
     tcp_server_port = 5760 if enable_tcp_server else 0
-    enable_datastream_requests = data.get("enable_datastream_requests", False)
-    enable_heartbeat = data.get("enable_heartbeat", False)
     enable_tlogs = data.get("enable_tlogs", False)
 
     try:
@@ -81,7 +80,6 @@ def start_telemetry():
         return jsonify({"status": "Telemetry started", "cmd": " ".join(cmd)})
     except Exception as e:
         logging.error(f"Failed to start telemetry: {str(e)}")
-        telemetry_status = "Not connected"
         return jsonify({"error": str(e)}), 500
 
 
@@ -139,14 +137,18 @@ def stop_telemetry():
 def get_telemetry_status():
     telemetry_status = TelemetryStatus.query.first()
 
-    # Double check status by checking for mavlink-routerd process, if process is running keep status as connected else update status to not connected
-    if telemetry_status and telemetry_status.status == "Connected" or telemetry_status and telemetry_status.status == "Connecting":
+    # Double-check mavlink-routerd before reporting a connected or connecting status.
+    if (
+        telemetry_status
+        and telemetry_status.status == "Connected"
+        or telemetry_status
+        and telemetry_status.status == "Connecting"
+    ):
         try:
             subprocess.run(
                 ["pgrep", "-f", "mavlink-routerd"],
                 check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
             )
         except subprocess.CalledProcessError:
             telemetry_status.status = "Not Connected"

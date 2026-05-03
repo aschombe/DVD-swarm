@@ -603,12 +603,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  instance range : {start_index}–{end_index}")
     print(f"  RAM estimate    : ~{n * mb_per // 1024} GB / {n * mb_per} MB")
     print(
-        f"  companion ports : {BASE_COMPANION_PORT + start_index}"
-        f"–{BASE_COMPANION_PORT + end_index}"
+        f"  companion ports : {BASE_COMPANION_PORT + start_index}–{BASE_COMPANION_PORT + end_index}"
     )
     print(
-        f"  simulator ports : {BASE_SIMULATOR_PORT + start_index}"
-        f"–{BASE_SIMULATOR_PORT + end_index}"
+        f"  simulator ports : {BASE_SIMULATOR_PORT + start_index}–{BASE_SIMULATOR_PORT + end_index}"
     )
     if not args.include_gcs:
         print("  GCS             : excluded (pass --include-gcs to add)")

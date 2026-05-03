@@ -7,6 +7,7 @@ import queue
 import subprocess
 import threading
 import time
+from contextlib import suppress
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -78,10 +79,8 @@ def _ws_publish(payload: dict) -> None:
             try:
                 q.put_nowait(payload)
             except queue.Full:
-                try:
+                with suppress(Exception):
                     _ = q.get_nowait()  # drop oldest
-                except Exception:
-                    pass
                 try:
                     q.put_nowait(payload)
                 except Exception:
@@ -210,7 +209,7 @@ def create_app() -> Flask:
     # -------------------- Socket.IO --------------------
 
     @socketio.on("connect")
-    def handle_connect(auth):  # noqa: D401, ANN001
+    def handle_connect(_auth):  # noqa: D401, ANN001
         telemetry_status = TelemetryStatus.query.first()
         if not telemetry_status:
             telemetry_status = TelemetryStatus(status="Not Connected")
@@ -253,10 +252,8 @@ def create_app() -> Flask:
             _ws_queues.add(q)
 
         if _last_mav is not None:
-            try:
+            with suppress(Exception):
                 ws.send(json.dumps(_last_mav, default=str))
-            except Exception:
-                pass
 
         try:
             while True:

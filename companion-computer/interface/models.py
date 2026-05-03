@@ -1,6 +1,7 @@
 from extensions import db
 from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
+
 
 class TelemetryStatus(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -9,15 +10,18 @@ class TelemetryStatus(db.Model):
     vehicle_type = db.Column(db.String(80), nullable=True)
     firmware_version = db.Column(db.String(80), nullable=True)
 
+
 class VehicleInfo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vehicle_type = db.Column(db.String(80), nullable=False)
     firmware_version = db.Column(db.String(80), nullable=False)
 
+
 class UdpDestination(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ip = db.Column(db.String(50))
     port = db.Column(db.Integer)
+
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)

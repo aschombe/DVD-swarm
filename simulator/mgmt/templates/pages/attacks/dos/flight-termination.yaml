@@ -10,8 +10,8 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      The Flight Termination involves sending the a command to the drone causing it to immediately terminate its current flight operation. 
-      This command instructs the drone to immediately stop its flight, usually resulting in an abrupt landing 
+      The Flight Termination involves sending the a command to the drone causing it to immediately terminate its current flight operation.
+      This command instructs the drone to immediately stop its flight, usually resulting in an abrupt landing
       or crash.
 
   - title: Resources

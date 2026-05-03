@@ -10,9 +10,9 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      Emergency status spoofing involves sending false emergency messages to the Ground 
-      Control Station (GCS) to mislead it about the drone's condition. This can cause 
-      the operator to believe that the drone is experiencing critical issues, potentially 
+      Emergency status spoofing involves sending false emergency messages to the Ground
+      Control Station (GCS) to mislead it about the drone's condition. This can cause
+      the operator to believe that the drone is experiencing critical issues, potentially
       leading to inappropriate responses or actions.
 
   - title: Resources
@@ -89,9 +89,9 @@ sections:
                   statustext_packet = create_statustext(severity, message)
 
                   send_mavlink_packet(statustext_packet, target_ip, target_port)
-                  
+
                   print(f"Sent STATUSTEXT packet with severity {severity} and message '{message}' to {target_ip}:{target_port}")
-                  
+
                   time.sleep(1)
           ```
 

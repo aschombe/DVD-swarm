@@ -10,9 +10,9 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      Battery spoofing involves sending false battery status data to the Ground Control Station (GCS) 
-      to mislead it about the drone's actual battery status. This can cause the operator to think the 
-      drone's battery is critically low or dead, potentially triggering emergency landing protocols or 
+      Battery spoofing involves sending false battery status data to the Ground Control Station (GCS)
+      to mislead it about the drone's actual battery status. This can cause the operator to think the
+      drone's battery is critically low or dead, potentially triggering emergency landing protocols or
       other safety measures.
 
   - title: Resources
@@ -83,7 +83,7 @@ sections:
                   battery_status_packet = create_battery_status()
 
                   send_mavlink_packet(battery_status_packet, target_ip, target_port)
-                  
+
                   print(f"Sent battery status packet to {target_ip}:{target_port}")
           ```
 

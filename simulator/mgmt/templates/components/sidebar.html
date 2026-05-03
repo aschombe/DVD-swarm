@@ -71,7 +71,7 @@
             </div>
         </div>
         <button id="open_qgc" class="btn btn-info">Launch QGroundControl</button>
-    </nav>    
+    </nav>
 </div>
 
 <div class="modal fade" id="qgcModal" tabindex="-1" aria-labelledby="qgcModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -98,16 +98,16 @@
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       // ... keep your existing code above ...
-  
+
       const launchBtn = document.getElementById('open_qgc');
       let controller = null;
       let timeoutId = null;
       const LAUNCH_TIMEOUT_MS = 6000;
-  
+
       function setBusy(busy) {
         launchBtn.disabled = busy;
       }
-  
+
       function showQgcError() {
         Swal.fire({
           title: "Failed to Launch QGroundControl",
@@ -120,7 +120,7 @@
           confirmButtonText: "OK"
         });
       }
-  
+
       function abortIfNeeded(reason) {
         if (controller) {
           controller.abort();
@@ -128,7 +128,7 @@
         }
         clearTimeout(timeoutId);
         setBusy(false);
-  
+
         if (reason === 'user') {
           Swal.fire({ title: "Launch canceled", icon: "info", timer: 1200, showConfirmButton: false });
         } else if (reason === 'timeout') {
@@ -139,11 +139,11 @@
           });
         }
       }
-  
+
       async function launchQGC() {
         controller = new AbortController();
         setBusy(true);
-  
+
         Swal.fire({
           title: "Launching QGroundControl…",
           html: "<small class='text-muted'>This can take a moment. You can cancel anytime.</small>",
@@ -161,20 +161,20 @@
             abortIfNeeded('user');
           }
         });
-  
+
         timeoutId = setTimeout(() => {
           Swal.close();
           abortIfNeeded('timeout');
         }, LAUNCH_TIMEOUT_MS);
-  
+
         try {
           const resp = await fetch('/qgc', { method: 'POST', signal: controller.signal });
-  
+
           clearTimeout(timeoutId);
           controller = null;
           setBusy(false);
           Swal.close();
-  
+
           if (resp.ok) {
             Swal.fire({ title: "QGroundControl launched", icon: "success", timer: 1600, showConfirmButton: false });
           } else {
@@ -185,7 +185,7 @@
           clearTimeout(timeoutId);
           controller = null;
           setBusy(false);
-  
+
           if (err.name !== 'AbortError') {
             Swal.close();
             // Always show the old standard error message
@@ -193,7 +193,7 @@
           }
         }
       }
-  
+
       launchBtn.addEventListener('click', launchQGC);
     });
   </script>

@@ -46,7 +46,7 @@ class FlightIndicators {
         this.placeholder = placeholder
         this.type = type
         this.settings = this.simpleMerge(FlightIndicators.DEFAULT_OPTIONS, options)
-        
+
         this.createInstrument()
     }
 
@@ -161,12 +161,12 @@ class FlightIndicators {
         const box = this.placeholder.querySelector('.box.background');
         if (box) box.classList.toggle('hidden', hide);
     }
-    
+
     showBox() {
         const box = this.placeholder.querySelector('.box.background');
         if (box) box.classList.remove('hidden');
     }
-    
+
     hideBox() {
         const box = this.placeholder.querySelector('.box.background');
         if (box) box.classList.add('hidden');
@@ -427,7 +427,7 @@ class FlightIndicators {
         const fiBox = this.createFiBoxImage(imgDirectory)
 
         const vmiBox = this.createImgBox(imgDirectory, 'vertical_mechanics.svg')
-        
+
         const speed = this.createNeedleBox('vertical-speed', imgDirectory)
 
         const mechanics = this.createMechanicsBox(imgDirectory)

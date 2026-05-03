@@ -38,7 +38,7 @@ The Damn Vulnerable Drone is an intentionally vulnerable drone hacking simulator
 
 ## What is the Damn Vulnerable Drone?
 
-The Damn Vulnerable Drone is a virtually simulated environment designed for offensive security professionals to safely learn and practice drone hacking techniques. It simulates real-world [ArduPilot](https://ardupilot.org/) & [MAVLink](https://mavlink.io/en/) drone architectures and vulnerabilities, offering a hands-on experience in exploiting drone systems. 
+The Damn Vulnerable Drone is a virtually simulated environment designed for offensive security professionals to safely learn and practice drone hacking techniques. It simulates real-world [ArduPilot](https://ardupilot.org/) & [MAVLink](https://mavlink.io/en/) drone architectures and vulnerabilities, offering a hands-on experience in exploiting drone systems.
 
 ## Why was it built?
 
@@ -73,8 +73,8 @@ While the current Damn Vulnerable Drone setup doesn't mirror every drone archite
 
 Please review the following instructions carefully to ensure a stable and well performing Damn Vulnerable Drone lab environment.
 
-> [!NOTE]  
-> Depending on your computer’s performance and internet speed, the full end-to-end installation process including container builds and image pulls, can take between *30-60 minutes*. Be patient and let each step complete before moving forward. 
+> [!NOTE]
+> Depending on your computer’s performance and internet speed, the full end-to-end installation process including container builds and image pulls, can take between *30-60 minutes*. Be patient and let each step complete before moving forward.
 
 ## System Requirements
 
@@ -93,8 +93,8 @@ Damn Vulnerable Drone can be run in two modes depending on your available hardwa
   - **Swap:** 4 GB
 
 - **Graphics:**
-  - No GPU required  
-  - Runs a **2D lightweight simulator** using ArduPilot’s built-in flight dynamics model instead of Gazebo  
+  - No GPU required
+  - Runs a **2D lightweight simulator** using ArduPilot’s built-in flight dynamics model instead of Gazebo
 
 - **Software:**
   - **Docker**
@@ -115,7 +115,7 @@ Lite Mode is recommended for users who cannot meet the GPU requirements of Full 
 - **Operating System:**
   - **Kali Linux** (no other OS is supported)
   - For best performance, use **bare metal**
-  - If you must use a VM, ensure **GPU passthrough** is enabled  
+  - If you must use a VM, ensure **GPU passthrough** is enabled
     - See [this guide on Hyper-V GPU passthrough](https://techcommunity.microsoft.com/t5/virtualization/bg-p/Virtualization) for setup help
 
 - **Hardware (Minimum):**
@@ -183,12 +183,12 @@ Choose the appropriate docker-compose file depending on whether you want Full Mo
 
 ### Pull Images
 
-**Full Mode** (with Gazebo 3D simulator):  
+**Full Mode** (with Gazebo 3D simulator):
 ```
 docker compose -f docker-compose.yaml pull
 ```
 
-**Lite Mode** (no GPU, lightweight 2D simulator): 
+**Lite Mode** (no GPU, lightweight 2D simulator):
 ```
 docker compose -f docker-compose-lite.yaml pull
 ```
@@ -197,12 +197,12 @@ docker compose -f docker-compose-lite.yaml pull
 
 If you’d rather build the images yourself (slower than pulling):
 
-**Full Mode** (with Gazebo 3D simulator):  
+**Full Mode** (with Gazebo 3D simulator):
 ```
 docker compose -f docker-compose.yaml build
 ```
 
-**Lite Mode** (no GPU, lightweight 2D simulator): 
+**Lite Mode** (no GPU, lightweight 2D simulator):
 ```
 docker compose -f docker-compose-lite.yaml build
 ```
@@ -213,9 +213,9 @@ Damn Vulnerable Drone includes three useful bash scripts which will help you man
 
 #### Starting Damn Vulnerable Drone
 
-The start script is used to start Damn Vulnerable Drone simulator. This script will automatically create a `dvd.log` log file in the project directory, which you can use to view the simulator logs. 
+The start script is used to start Damn Vulnerable Drone simulator. This script will automatically create a `dvd.log` log file in the project directory, which you can use to view the simulator logs.
 
-> [!TIP]  
+> [!TIP]
 > If you have not already built or pulled Damn Vulnerable Drone images the `start.sh` script will automatically pull and build them for you.
 
 ```
@@ -249,19 +249,19 @@ If you ever want to check the status of your simulator you can run the status sc
 
 `sudo ./status.sh`
 
-### Wi-Fi Mode 
+### Wi-Fi Mode
 
 "Wi-Fi Mode" (`--wifi`) allows for the most realistic virtual drone hacking simulation. It deploys a virtually simulated wireless network that you can interact with. This virtual wifi network acts as the data-link connection between the Ground Station and Drone Companion Computer, allowing for interesting scenarios from your attacker machine. When you deploy the Damn Vulnerable Drone using Wi-Fi Mode you will have access to the "Drone_Wifi" SSID and 192.168.13.0/24 network. There are two wifi modes supported WEP and WPA2.
 
-> [!WARNING]  
-> The 10.13.0.0/24 network is used to run the simulator infrastructure, should you attack this network, especially the simulator container on `10.13.0.5` this could cause your instance of Damn Vulnerable Drone to crash, warranting a potentially lengthy rebuild. 
+> [!WARNING]
+> The 10.13.0.0/24 network is used to run the simulator infrastructure, should you attack this network, especially the simulator container on `10.13.0.5` this could cause your instance of Damn Vulnerable Drone to crash, warranting a potentially lengthy rebuild.
 
 ### Non-Wi-Fi Mode
 
 "Non-Wi-Fi Mode" (`--no-wifi`) essentially only runs the Damn Vulnerable Drone docker containers.
 Unlike "Wi-Fi Mode" you are not limited to only running "Non-Wi-Fi Mode" within a Kali Linux VM. You'll be able to practice attacking the Damn Vulnerable Drone using just the stood up containers via `docker compose up --build`
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > Not, "Non-Wi-Fi Mode" does not support wifi simulations and you will need to assume that you have an established initial access foothold on the drone data-link connection (via the 10.13.0.0/24 network)
 
 ## Architecture
@@ -411,4 +411,3 @@ The Damn Vulnerable Drone (DVD) platform is provided solely for educational and 
 # License
 
 It is distributed under the MIT License. See LICENSE for more information.
-

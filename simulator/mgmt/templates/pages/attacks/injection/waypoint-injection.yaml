@@ -20,14 +20,14 @@ sections:
     collapsible: true
     steps:
       - title: Step 1
-        description: | 
+        description: |
           Install pymavlink.
 
           ```pip install pymavlink
           ```
 
       - title: Step 2
-        description: | 
+        description: |
           Create a Python script to add a new waypoint. Replace `connection_string`, `latitude`, `longitude`, `altitude`, and other parameters with appropriate values.
 
           ```from pymavlink import mavutil
@@ -74,5 +74,5 @@ sections:
           print(f"Waypoint added: lat={latitude}, lon={longitude}, alt={altitude}")
           ```
       - title: Conclusion
-        description: | 
+        description: |
            This guide provides a step-by-step approach to adding a waypoint to the drone's mission using pymavlink, allowing you to define the coordinates and parameters for the new waypoint.

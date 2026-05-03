@@ -13,4 +13,3 @@ See the tutorial [here](http://gazebosim.org/tutorials?tut=gzweb_install&cat=gzw
 # Development
 
 See the tutorial [here](http://gazebosim.org/tutorials?tut=gzweb_development&cat=gzweb)
-

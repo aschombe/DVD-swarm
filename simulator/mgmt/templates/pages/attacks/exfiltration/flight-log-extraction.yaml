@@ -9,9 +9,9 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      The flight log extraction process involves collecting binary logs (BIN files) from an 
-      ArduPilot/MAVLink drone. This can be achieved using tools like MAVProxy or pymavlink scripts. 
-      After collecting the logs, they can be converted to a CSV format using pybinlog for easy viewing 
+      The flight log extraction process involves collecting binary logs (BIN files) from an
+      ArduPilot/MAVLink drone. This can be achieved using tools like MAVProxy or pymavlink scripts.
+      After collecting the logs, they can be converted to a CSV format using pybinlog for easy viewing
       and analysis.
 
   - title: Resources
@@ -41,7 +41,7 @@ sections:
           Connect to the drone and download the logs using MAVProxy:
           ```mavproxy.py --master=tcp:10.13.0.3:5760
           ```
-          
+
           List available logs:
           ```mavproxy> log list
           ```
@@ -68,8 +68,8 @@ sections:
 
           def list_logs(connection):
               connection.mav.log_request_list_send(
-                  connection.target_system, 
-                  connection.target_component, 
+                  connection.target_system,
+                  connection.target_component,
                   0, 0xffff
               )
 
@@ -79,7 +79,7 @@ sections:
                   if msg is None:
                       break
                   logs.append(msg)
-              
+
               return logs
 
           def download_log(connection, log_id, log_size, filename):
@@ -128,7 +128,7 @@ sections:
                   print(f"Log {log_id} downloaded successfully.")
               else:
                   print(f"Log ID {log_id} not found.")
-                                                        
+
           ```
 
           Run the script to download logs:
@@ -154,7 +154,7 @@ sections:
       - title: Step 6. Analyze the CSV Logs
         description: |
           Open the generated CSV files to view and analyze the flight log data using any spreadsheet software or data analysis tool.<br><br>
-          
+
           Below is a table with a breakdown for the different type of logs you can find:
 
           <table border="1">
@@ -443,5 +443,3 @@ sections:
               </tr>
             </tbody>
           </table>
-
-

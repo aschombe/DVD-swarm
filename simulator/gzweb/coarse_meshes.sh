@@ -50,4 +50,3 @@ echo "Simplifying meshes"
 coarseAllDae $1
 
 echo "Done!"
-

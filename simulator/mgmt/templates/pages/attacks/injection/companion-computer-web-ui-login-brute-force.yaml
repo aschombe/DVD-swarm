@@ -9,8 +9,8 @@ breadcrumb:
 sections:
   - title: Description
     content: |
-      This scenario involves using Hydra, a popular brute-force tool, to crack the login credentials for the Companion Computer's 
-      Web UI located at <a href="http://localhost:3000">http://localhost:3000</a>. By following this guide, you will learn how to perform a password attack on a web-based 
+      This scenario involves using Hydra, a popular brute-force tool, to crack the login credentials for the Companion Computer's
+      Web UI located at <a href="http://localhost:3000">http://localhost:3000</a>. By following this guide, you will learn how to perform a password attack on a web-based
       interface and understand the principles of brute-forcing.
   - title: Resources
     content:
@@ -21,18 +21,18 @@ sections:
     collapsible: true
     steps:
       - title: Step 1
-        description: | 
+        description: |
           Install Hydra if it isn't already installed on your system. (Kali should have it installed by default)
 
           ```sudo apt-get install hydra
           ```
       - title: Step 2
-        description: | 
+        description: |
           Identify the login form on the Companion Computer's Web UI at <a href="http://localhost:3000">http://localhost:3000</a>. Use your browser's developer tools to inspect the form network action and find the username and password field names.
 
 
       - title: Step 3
-        description: | 
+        description: |
           Prepare your wordlists. You'll need a list of potential passwords. You can use pre-built wordlists or create your own. There is a list of common passwords available here: <a href="https://github.com/nicholasaleks/Damn-Vulnerable-Drone/tree/master/simulator/mgmt/templates/pages/attacks/injection/passwords.txt">https://github.com/nicholasaleks/Damn-Vulnerable-Drone/tree/master/simulator/mgmt/templates/pages/attacks/injection/passwords.txt</a>
 
       - title: Step 4
@@ -50,4 +50,3 @@ sections:
 
           ```[3000][http-post-form] host: localhost   login: admin   password: cyberdrone
           ```
-      

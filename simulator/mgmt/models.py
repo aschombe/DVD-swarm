@@ -1,21 +1,23 @@
 from extensions import db
 
-STATUS_CHOICES = ['Disabled', 'Enabled', 'Loading', 'Active']
+STATUS_CHOICES = ["Disabled", "Enabled", "Loading", "Active"]
+
 
 class Stage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(50), unique=True, nullable=False)
     name = db.Column(db.String(50), unique=True, nullable=False)
-    status = db.Column(db.String(50), default='Disabled')
+    status = db.Column(db.String(50), default="Disabled")
 
     def __repr__(self):
-        return f'<Stage {self.name}, Status {self.status}>'
+        return f"<Stage {self.name}, Status {self.status}>"
 
-    @db.validates('status')
-    def validate_status(self, key, status):
+    @db.validates("status")
+    def validate_status(self, _key, status):
         if status not in STATUS_CHOICES:
             raise ValueError("Invalid status")
         return status
+
 
 def create_initial_stages():
 
